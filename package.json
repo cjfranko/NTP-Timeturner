@@ -1,0 +1,17 @@
+{
+  "name": "ntp-timeturner",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dgram": "^1.0.1",
+    "express": "^4.19.2",
+    "moment-timezone": "^0.5.45"
+  }
+}
