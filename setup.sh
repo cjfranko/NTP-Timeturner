@@ -26,7 +26,7 @@ sudo apt upgrade -y
 # ---------------------------------------------------------
 echo ""
 echo "Step 2: Installing development tools..."
-sudo apt install -y git curl python3 python3-pip build-essential
+sudo apt install -y git curl python3 python3-pip build-essential autoconf automake libtool cmake
 
 # ---------------------------------------------------------
 # Step 3: Install audio and media dependencies
@@ -36,6 +36,7 @@ echo "Step 3: Installing audio libraries and tools..."
 sudo apt install -y alsa-utils ffmpeg \
   portaudio19-dev python3-pyaudio \
   libasound2-dev libjack-jackd2-dev \
+  libsndfile-dev \
   || echo "Warning: Some audio dependencies may have failed to install — continuing anyway."
 
 # ---------------------------------------------------------
@@ -58,9 +59,6 @@ fi
 cd libltc
 
 echo "Installing libltc build dependencies..."
-sudo apt install -y autoconf automake libtool
-
-echo "Preparing libltc build..."
 ./autogen.sh
 ./configure
 
