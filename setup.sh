@@ -26,7 +26,7 @@ sudo apt upgrade -y
 # ---------------------------------------------------------
 echo ""
 echo "Step 2: Installing development tools..."
-sudo apt install -y git curl python3 python3-pip build-essential cmake
+sudo apt install -y git curl python3 python3-pip build-essential
 
 # ---------------------------------------------------------
 # Step 3: Install audio and media dependencies
