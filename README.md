@@ -1,4 +1,4 @@
-﻿# 🕰️ NTP Timeturner
+﻿# 🕰️ NTP Timeturner (alpha)
 
 **An LTC-driven NTP server for Raspberry Pi, built with broadcast precision and a hint of magic.**
 
