@@ -26,7 +26,7 @@ sudo apt upgrade -y
 # ---------------------------------------------------------
 echo ""
 echo "Step 2: Installing development tools..."
-sudo apt install -y git curl python3 python3-pip build-essential cmake
+sudo apt install -y git curl python3 python3-pip build-essential
 
 # ---------------------------------------------------------
 # Step 3: Install audio and media dependencies
@@ -55,11 +55,19 @@ if ! command -v ltcdump >/dev/null 2>&1; then
     git clone https://github.com/x42/ltc-tools.git
   fi
   cd ltc-tools
-  mkdir -p build && cd build
-  echo "Running CMake configuration..."
-  cmake ..
+
+  echo "Installing autotools build dependencies..."
+  sudo apt install -y autoconf automake libtool
+
+  echo "Preparing build system..."
+  ./autogen.sh
+
+  echo "Configuring build..."
+  ./configure
+
   echo "Compiling ltc-tools..."
   make
+
   echo "Installing ltc-tools binaries..."
   sudo make install
   sudo ldconfig
