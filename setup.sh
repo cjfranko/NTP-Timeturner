@@ -56,12 +56,6 @@ if ! command -v ltcdump >/dev/null 2>&1; then
   fi
   cd ltc-tools
 
-  echo "Installing autotools build dependencies..."
-  sudo apt install -y autoconf automake libtool
-
-  echo "Configuring build..."
-  ./configure
-
   echo "Compiling ltc-tools..."
   make
 
