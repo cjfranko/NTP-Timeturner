@@ -105,19 +105,24 @@ mkdir -p /home/hermione/Pictures
 curl -L -o /home/hermione/Pictures/wallpaper.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/wallpaper.png
 chown hermione:hermione /home/hermione/Pictures/wallpaper.png
 
-# Set LXDE wallpaper via pcmanfm config (assumes default LXDE desktop)
+# Find LXDE config directory (e.g. LXDE, LXDE-pi)
+PCMANFM_CONF_DIR=$(find /home/hermione/.config/pcmanfm -type d -name "LXDE*" | head -n 1)
+CONFIG_FILE="$PCMANFM_CONF_DIR/desktop-items-0.conf"
 WALLPAPER_PATH="/home/hermione/Pictures/wallpaper.png"
-CONFIG_FILE="/home/hermione/.config/pcmanfm/LXDE/desktop-items-0.conf"
-mkdir -p "$(dirname "$CONFIG_FILE")"
 
+echo "Updating LXDE config in $CONFIG_FILE..."
+mkdir -p "$(dirname "$CONFIG_FILE")"
 if [ -f "$CONFIG_FILE" ]; then
-  sed -i "s|wallpaper=.*|wallpaper=$WALLPAPER_PATH|g" "$CONFIG_FILE"
+  sed -i "s|^wallpaper=.*|wallpaper=$WALLPAPER_PATH|g" "$CONFIG_FILE"
 else
   echo "[*]" > "$CONFIG_FILE"
   echo "wallpaper=$WALLPAPER_PATH" >> "$CONFIG_FILE"
   echo "wallpaper_mode=stretch" >> "$CONFIG_FILE"
 fi
 chown hermione:hermione "$CONFIG_FILE"
+
+echo "Attempting to refresh desktop wallpaper..."
+sudo -u hermione DISPLAY=:0 pcmanfm --reconfigure || echo "Desktop not running or not LXDE — wallpaper will apply on next login."
 
 echo "Custom splash and wallpaper applied."
 
