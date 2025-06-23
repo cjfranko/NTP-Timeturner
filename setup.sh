@@ -40,7 +40,7 @@ sudo apt install -y alsa-utils ffmpeg portaudio19-dev python3-pyaudio libasound2
 # ---------------------------------------------------------
 echo ""
 echo "Step 4: Installing Python packages..."
-pip3 install numpy
+pip3 install numpy --break-system-packages
 
 # ---------------------------------------------------------
 # Step 5: Check for or install ltc-tools
