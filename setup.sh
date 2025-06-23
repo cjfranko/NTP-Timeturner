@@ -15,16 +15,30 @@ echo ""
 sudo apt update && sudo apt upgrade -y
 
 # Essential tools
-sudo apt install -y git curl python3 python3-pip build-essential
+sudo apt install -y git curl python3 python3-pip build-essential cmake
 
 # Audio tools
-sudo apt install -y alsa-utils ffmpeg portaudio19-dev python3-pyaudio
-
-# LTC decoding tools
-sudo apt install -y ltc-tools
+sudo apt install -y alsa-utils ffmpeg portaudio19-dev python3-pyaudio libasound2-dev libjack-jackd2-dev
 
 # Python packages
 pip3 install numpy
+
+# Install ltc-tools from source if not available
+if ! command -v ltcdump >/dev/null 2>&1; then
+  echo "ltc-tools not found, building from source..."
+  cd ~
+  if [ ! -d "libltc" ]; then
+    git clone https://github.com/x42/libltc.git
+  fi
+  cd libltc
+  mkdir -p build && cd build
+  cmake ..
+  make
+  sudo make install
+  sudo ldconfig
+else
+  echo "ltc-tools already installed."
+fi
 
 echo ""
 echo "─────────────────────────────────────────────"
