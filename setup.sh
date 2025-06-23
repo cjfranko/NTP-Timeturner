@@ -58,7 +58,7 @@ if [ ! -d "libltc" ]; then
 fi
 cd libltc
 
-echo "Installing libltc build dependencies..."
+echo "Preparing libltc build..."
 ./autogen.sh
 ./configure
 
@@ -89,6 +89,39 @@ sudo make install
 sudo ldconfig
 
 # ---------------------------------------------------------
+# Step 7: Apply Custom Splash Screen and Wallpaper
+# ---------------------------------------------------------
+echo ""
+echo "Step 7: Applying Timeturner visual identity..."
+
+# Splash screen
+echo "Downloading splash screen..."
+sudo curl -L -o /usr/share/plymouth/themes/pix/splash.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/splash.png
+sudo chmod 644 /usr/share/plymouth/themes/pix/splash.png
+
+# Wallpaper
+echo "Downloading wallpaper..."
+mkdir -p /home/hermione/Pictures
+curl -L -o /home/hermione/Pictures/wallpaper.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/wallpaper.png
+chown hermione:hermione /home/hermione/Pictures/wallpaper.png
+
+# Set LXDE wallpaper via pcmanfm config (assumes default LXDE desktop)
+WALLPAPER_PATH="/home/hermione/Pictures/wallpaper.png"
+CONFIG_FILE="/home/hermione/.config/pcmanfm/LXDE/desktop-items-0.conf"
+mkdir -p "$(dirname "$CONFIG_FILE")"
+
+if [ -f "$CONFIG_FILE" ]; then
+  sed -i "s|wallpaper=.*|wallpaper=$WALLPAPER_PATH|g" "$CONFIG_FILE"
+else
+  echo "[*]" > "$CONFIG_FILE"
+  echo "wallpaper=$WALLPAPER_PATH" >> "$CONFIG_FILE"
+  echo "wallpaper_mode=stretch" >> "$CONFIG_FILE"
+fi
+chown hermione:hermione "$CONFIG_FILE"
+
+echo "Custom splash and wallpaper applied."
+
+# ---------------------------------------------------------
 # Final Message
 # ---------------------------------------------------------
 echo ""
@@ -98,5 +131,5 @@ echo "────────────────────────�
 echo ""
 echo "The TimeTurner is ready. But remember:"
 echo "\"You must not be seen.\" – Hermione Granger"
-echo "Guidance provided by Luna, Department of Temporal Engineering."
+echo "Visual enchantments provided by Luna, Department of Temporal Engineering."
 echo ""
