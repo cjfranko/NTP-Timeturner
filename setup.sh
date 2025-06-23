@@ -26,7 +26,7 @@ sudo apt upgrade -y
 # ---------------------------------------------------------
 echo ""
 echo "Step 2: Installing development tools..."
-sudo apt install -y git curl python3 python3-pip build-essential
+sudo apt install -y git curl python3 python3-pip build-essential cmake
 
 # ---------------------------------------------------------
 # Step 3: Install audio and media dependencies
@@ -43,28 +43,41 @@ echo "Step 4: Installing Python packages..."
 pip3 install numpy --break-system-packages
 
 # ---------------------------------------------------------
-# Step 5: Check for or install ltc-tools from source
+# Step 5: Build and install libltc (dependency of ltc-tools)
 # ---------------------------------------------------------
 echo ""
-echo "Step 5: Verifying LTC tools..."
-if ! command -v ltcdump >/dev/null 2>&1; then
-  echo "ltc-tools not found, building from source..."
-  cd ~
-  if [ ! -d "ltc-tools" ]; then
-    echo "Cloning ltc-tools from GitHub..."
-    git clone https://github.com/x42/ltc-tools.git
-  fi
-  cd ltc-tools
-
-  echo "Compiling ltc-tools..."
-  make
-
-  echo "Installing ltc-tools binaries..."
-  sudo make install
-  sudo ldconfig
-else
-  echo "ltc-tools already installed."
+echo "Step 5: Installing libltc (required for ltc-tools)..."
+cd ~
+if [ ! -d "libltc" ]; then
+  echo "Cloning libltc from GitHub..."
+  git clone https://github.com/x42/libltc.git
 fi
+cd libltc
+mkdir -p build && cd build
+echo "Configuring libltc..."
+cmake ..
+echo "Building libltc..."
+make
+echo "Installing libltc..."
+sudo make install
+sudo ldconfig
+
+# ---------------------------------------------------------
+# Step 6: Build and install ltc-tools
+# ---------------------------------------------------------
+echo ""
+echo "Step 6: Building and installing ltc-tools..."
+cd ~
+if [ ! -d "ltc-tools" ]; then
+  echo "Cloning ltc-tools from GitHub..."
+  git clone https://github.com/x42/ltc-tools.git
+fi
+cd ltc-tools
+echo "Compiling ltc-tools..."
+make
+echo "Installing ltc-tools..."
+sudo make install
+sudo ldconfig
 
 # ---------------------------------------------------------
 # Final Message
@@ -76,4 +89,5 @@ echo "────────────────────────�
 echo ""
 echo "The TimeTurner is ready. But remember:"
 echo "\"You must not be seen.\" – Hermione Granger"
+echo "Guidance provided by Luna, Department of Temporal Engineering."
 echo ""
