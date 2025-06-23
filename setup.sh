@@ -56,14 +56,20 @@ if [ ! -d "libltc" ]; then
   git clone https://github.com/x42/libltc.git
 fi
 cd libltc
-mkdir -p build && cd build
-echo "Configuring libltc..."
-cmake ..
+
+echo "Installing libltc build dependencies..."
+sudo apt install -y autoconf automake libtool
+
+echo "Preparing libltc build..."
+./autogen.sh
+./configure
+
 echo "Compiling libltc..."
 make
+
 echo "Installing libltc..."
 sudo make install
-sudo ldconfig   # refresh library cache so ld can find libltc
+sudo ldconfig
 
 # ---------------------------------------------------------
 # Step 6: Build and install ltc-tools
@@ -77,7 +83,7 @@ if [ ! -d "ltc-tools" ]; then
 fi
 cd ltc-tools
 
-echo "Compiling ltc-tools (telling it HAV​E_LIBLTC=true)..."
+echo "Compiling ltc-tools (bypassing package check)..."
 make HAVE_LIBLTC=true
 
 echo "Installing ltc-tools..."
@@ -92,7 +98,7 @@ echo "────────────────────────�
 echo "  Setup Complete"
 echo "─────────────────────────────────────────────"
 echo ""
-echo "The TimeTurner is ready.  But remember:"
+echo "The TimeTurner is ready. But remember:"
 echo "\"You must not be seen.\" – Hermione Granger"
 echo "Guidance provided by Luna, Department of Temporal Engineering."
 echo ""
