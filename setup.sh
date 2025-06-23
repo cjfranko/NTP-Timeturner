@@ -43,24 +43,24 @@ echo "Step 4: Installing Python packages..."
 pip3 install numpy --break-system-packages
 
 # ---------------------------------------------------------
-# Step 5: Check for or install ltc-tools
+# Step 5: Check for or install ltc-tools from source
 # ---------------------------------------------------------
 echo ""
 echo "Step 5: Verifying LTC tools..."
 if ! command -v ltcdump >/dev/null 2>&1; then
   echo "ltc-tools not found, building from source..."
   cd ~
-  if [ ! -d "libltc" ]; then
-    echo "Cloning libltc from GitHub..."
-    git clone https://github.com/x42/libltc.git
+  if [ ! -d "ltc-tools" ]; then
+    echo "Cloning ltc-tools from GitHub..."
+    git clone https://github.com/x42/ltc-tools.git
   fi
-  cd libltc
+  cd ltc-tools
   mkdir -p build && cd build
   echo "Running CMake configuration..."
   cmake ..
-  echo "Compiling libltc..."
+  echo "Compiling ltc-tools..."
   make
-  echo "Installing libltc binaries..."
+  echo "Installing ltc-tools binaries..."
   sudo make install
   sudo ldconfig
 else
