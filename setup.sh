@@ -124,7 +124,7 @@ chown hermione:hermione "$INIT_FILE"
 echo "Custom splash and Wayland wallpaper applied."
 
 # ---------------------------------------------------------
-# Final Message
+# Final Message & Reboot Option
 # ---------------------------------------------------------
 echo ""
 echo "─────────────────────────────────────────────"
@@ -135,3 +135,8 @@ echo "The TimeTurner is ready. But remember:"
 echo "\"You must not be seen.\" – Hermione Granger"
 echo "Visual enchantments adapted for Wayland by Luna."
 echo ""
+echo "The system will reboot in 30 seconds to complete setup..."
+echo "Press [Enter] to reboot immediately, or Ctrl+C to cancel."
+
+read -t 30 -p ""
+sudo reboot
