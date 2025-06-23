@@ -33,7 +33,10 @@ sudo apt install -y git curl python3 python3-pip build-essential cmake
 # ---------------------------------------------------------
 echo ""
 echo "Step 3: Installing audio libraries and tools..."
-sudo apt install -y alsa-utils ffmpeg portaudio19-dev python3-pyaudio libasound2-dev libjack-jackd2-dev || echo "Warning: Some audio dependencies may have failed to install, continuing..."
+sudo apt install -y alsa-utils ffmpeg \
+  portaudio19-dev python3-pyaudio \
+  libasound2-dev libjack-jackd2-dev \
+  || echo "Warning: Some audio dependencies may have failed to install — continuing anyway."
 
 # ---------------------------------------------------------
 # Step 4: Install Python packages
@@ -43,10 +46,10 @@ echo "Step 4: Installing Python packages..."
 pip3 install numpy --break-system-packages
 
 # ---------------------------------------------------------
-# Step 5: Build and install libltc (dependency of ltc-tools)
+# Step 5: Build and install libltc (needed by ltc-tools)
 # ---------------------------------------------------------
 echo ""
-echo "Step 5: Installing libltc (required for ltc-tools)..."
+echo "Step 5: Building libltc (the heart of our time-magic)..."
 cd ~
 if [ ! -d "libltc" ]; then
   echo "Cloning libltc from GitHub..."
@@ -56,25 +59,27 @@ cd libltc
 mkdir -p build && cd build
 echo "Configuring libltc..."
 cmake ..
-echo "Building libltc..."
+echo "Compiling libltc..."
 make
 echo "Installing libltc..."
 sudo make install
-sudo ldconfig
+sudo ldconfig   # refresh library cache so ld can find libltc
 
 # ---------------------------------------------------------
 # Step 6: Build and install ltc-tools
 # ---------------------------------------------------------
 echo ""
-echo "Step 6: Building and installing ltc-tools..."
+echo "Step 6: Building ltc-tools (with a gentle nudge)..."
 cd ~
 if [ ! -d "ltc-tools" ]; then
   echo "Cloning ltc-tools from GitHub..."
   git clone https://github.com/x42/ltc-tools.git
 fi
 cd ltc-tools
-echo "Compiling ltc-tools..."
-make
+
+echo "Compiling ltc-tools (telling it HAV​E_LIBLTC=true)..."
+make HAVE_LIBLTC=true
+
 echo "Installing ltc-tools..."
 sudo make install
 sudo ldconfig
@@ -87,7 +92,7 @@ echo "────────────────────────�
 echo "  Setup Complete"
 echo "─────────────────────────────────────────────"
 echo ""
-echo "The TimeTurner is ready. But remember:"
+echo "The TimeTurner is ready.  But remember:"
 echo "\"You must not be seen.\" – Hermione Granger"
 echo "Guidance provided by Luna, Department of Temporal Engineering."
 echo ""
