@@ -89,39 +89,13 @@ sudo make install
 sudo ldconfig
 
 # ---------------------------------------------------------
-# Step 7: Apply Custom Splash Screen and Wayland Wallpaper
+# Step 7: Apply Custom Splash Screen
 # ---------------------------------------------------------
 echo ""
-echo "Step 7: Applying Timeturner visual identity..."
+echo "Step 7: Applying splash screen..."
 
-# Splash screen
-echo "Downloading splash screen..."
 sudo curl -L -o /usr/share/plymouth/themes/pix/splash.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/splash.png
 sudo chmod 644 /usr/share/plymouth/themes/pix/splash.png
-
-# Wallpaper for LabWC / swaybg
-echo "Installing swaybg for Wayland wallpaper management..."
-sudo apt install -y swaybg
-
-echo "Downloading wallpaper..."
-mkdir -p /home/hermione/Pictures
-curl -L -o /home/hermione/Pictures/wallpaper.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/wallpaper.png
-chown hermione:hermione /home/hermione/Pictures/wallpaper.png
-
-# Update labwc init file
-INIT_FILE="/home/hermione/.config/labwc/init"
-mkdir -p "$(dirname "$INIT_FILE")"
-
-if ! grep -q "swaybg" "$INIT_FILE" 2>/dev/null; then
-  echo "Adding swaybg launch command to LabWC init file..."
-  echo "exec swaybg -i /home/hermione/Pictures/wallpaper.png --mode fill" >> "$INIT_FILE"
-else
-  echo "LabWC wallpaper command already present — skipping"
-fi
-
-chown hermione:hermione "$INIT_FILE"
-
-echo "Custom splash and Wayland wallpaper applied."
 
 # ---------------------------------------------------------
 # Final Message & Reboot Option
@@ -133,10 +107,11 @@ echo "────────────────────────�
 echo ""
 echo "The TimeTurner is ready. But remember:"
 echo "\"You must not be seen.\" – Hermione Granger"
-echo "Visual enchantments adapted for Wayland by Luna."
+echo "Visual enhancements are in place. Terminal timeline is stable."
 echo ""
 echo "The system will reboot in 30 seconds to complete setup..."
 echo "Press [Enter] to reboot immediately, or Ctrl+C to cancel."
 
-read -t 30 -p ""
+read -t 30 -p "" || true
+sleep 1
 sudo reboot

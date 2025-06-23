@@ -1,31 +1,37 @@
 ﻿# 🕰️ NTP Timeturner
 
-**NTP Timeturner** is a Raspberry Pi-based stratum 1 time server that sets its system clock based on incoming SMPTE LTC (Linear Timecode) audio. Designed for broadcast and production environments, it allows LTC-based time sync across local networks via NTP.
+**An LTC-driven NTP server for Raspberry Pi, built with broadcast precision and a hint of magic.**
+
+Inspired by Hermione Granger’s TimeTurner, this project synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP — with precision down to the millisecond.
 
 ---
 
-## 📦 Features
+## 📦 Hardware Requirements
 
-- 🕒 Decodes LTC timecode from audio input (25fps supported)
-- 🌐 Serves NTP time to local devices
-- ⚡ Fast, reliable startup using a USB audio interface
-- 🔌 Optional OLED display for system time and sync status (coming soon)
-- 🛜 Web interface for Wi-Fi config and status (in development)
+- Raspberry Pi 3 (or better)
+- Debian Bookworm (64-bit recommended)
+- USB audio input (e.g. USB to 3.5mm TRS adapter)
+- Ethernet connection (recommended for stable NTP)
+- Optional: Blackmagic Video Assist or LTC generator for input testing
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Software Features
 
-### ✅ Requirements
+- Reads SMPTE LTC from audio input (25p/50i to start, with more frame rate support to follow)
+- Converts LTC into NTP-synced time
+- Broadcasts time via local NTP server
+- Supports configurable time offsets (hours, minutes, seconds, milliseconds)
+- Systemd service support for headless operation
+- Optional splash screen branding at boot
 
-- Raspberry Pi 3 or newer
-- Debian Bookworm
-- USB audio interface with 3.5mm mic/line input
-- SMPTE LTC source (e.g. video playout, Blackmagic device)
+---
 
-### ⚙️ Setup Instructions
+## 🚀 Installation
 
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/cjfranko/NTP-Timeturner.git
-   cd NTP-Timeturner
+Clone and run the installer:
+
+```bash
+wget https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/setup.sh
+chmod +x setup.sh
+./setup.sh
