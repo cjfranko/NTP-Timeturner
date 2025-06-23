@@ -59,9 +59,6 @@ if ! command -v ltcdump >/dev/null 2>&1; then
   echo "Installing autotools build dependencies..."
   sudo apt install -y autoconf automake libtool
 
-  echo "Preparing build system..."
-  ./autogen.sh
-
   echo "Configuring build..."
   ./configure
 
