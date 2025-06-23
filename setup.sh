@@ -2,6 +2,7 @@
 set -e
 
 echo "🔧 Installing dependencies for NTP Timeturner..."
+echo "Hermione, Time to Twist the Timeturner..."
 
 # Update and upgrade packages
 sudo apt update && sudo apt upgrade -y
