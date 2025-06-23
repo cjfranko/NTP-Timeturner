@@ -89,7 +89,7 @@ sudo make install
 sudo ldconfig
 
 # ---------------------------------------------------------
-# Step 7: Apply Custom Splash Screen and Wallpaper
+# Step 7: Apply Custom Splash Screen and Wayland Wallpaper
 # ---------------------------------------------------------
 echo ""
 echo "Step 7: Applying Timeturner visual identity..."
@@ -99,32 +99,29 @@ echo "Downloading splash screen..."
 sudo curl -L -o /usr/share/plymouth/themes/pix/splash.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/splash.png
 sudo chmod 644 /usr/share/plymouth/themes/pix/splash.png
 
-# Wallpaper
+# Wallpaper for LabWC / swaybg
+echo "Installing swaybg for Wayland wallpaper management..."
+sudo apt install -y swaybg
+
 echo "Downloading wallpaper..."
 mkdir -p /home/hermione/Pictures
 curl -L -o /home/hermione/Pictures/wallpaper.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/wallpaper.png
 chown hermione:hermione /home/hermione/Pictures/wallpaper.png
 
-# Find LXDE config directory (e.g. LXDE, LXDE-pi)
-PCMANFM_CONF_DIR=$(find /home/hermione/.config/pcmanfm -type d -name "LXDE*" | head -n 1)
-CONFIG_FILE="$PCMANFM_CONF_DIR/desktop-items-0.conf"
-WALLPAPER_PATH="/home/hermione/Pictures/wallpaper.png"
+# Update labwc init file
+INIT_FILE="/home/hermione/.config/labwc/init"
+mkdir -p "$(dirname "$INIT_FILE")"
 
-echo "Updating LXDE config in $CONFIG_FILE..."
-mkdir -p "$(dirname "$CONFIG_FILE")"
-if [ -f "$CONFIG_FILE" ]; then
-  sed -i "s|^wallpaper=.*|wallpaper=$WALLPAPER_PATH|g" "$CONFIG_FILE"
+if ! grep -q "swaybg" "$INIT_FILE" 2>/dev/null; then
+  echo "Adding swaybg launch command to LabWC init file..."
+  echo "exec swaybg -i /home/hermione/Pictures/wallpaper.png --mode fill" >> "$INIT_FILE"
 else
-  echo "[*]" > "$CONFIG_FILE"
-  echo "wallpaper=$WALLPAPER_PATH" >> "$CONFIG_FILE"
-  echo "wallpaper_mode=stretch" >> "$CONFIG_FILE"
+  echo "LabWC wallpaper command already present — skipping"
 fi
-chown hermione:hermione "$CONFIG_FILE"
 
-echo "Attempting to refresh desktop wallpaper..."
-sudo -u hermione DISPLAY=:0 pcmanfm --reconfigure || echo "Desktop not running or not LXDE — wallpaper will apply on next login."
+chown hermione:hermione "$INIT_FILE"
 
-echo "Custom splash and wallpaper applied."
+echo "Custom splash and Wayland wallpaper applied."
 
 # ---------------------------------------------------------
 # Final Message
@@ -136,5 +133,5 @@ echo "────────────────────────�
 echo ""
 echo "The TimeTurner is ready. But remember:"
 echo "\"You must not be seen.\" – Hermione Granger"
-echo "Visual enchantments provided by Luna, Department of Temporal Engineering."
+echo "Visual enchantments adapted for Wayland by Luna."
 echo ""
