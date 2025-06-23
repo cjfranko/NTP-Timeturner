@@ -1,0 +1,8 @@
+{
+  "framerate": 25,
+  "start_mode": "system",
+  "manual_time": "12:00:00",
+  "duration_seconds": 3600,
+  "ltc_gen_path": "ltc-gen.exe",
+  "autostart_timeout": 5
+}
