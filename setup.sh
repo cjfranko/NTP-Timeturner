@@ -1,8 +1,15 @@
 ﻿#!/bin/bash
 set -e
 
-echo "🔧 Installing dependencies for NTP Timeturner..."
-echo "Hermione, Time to Twist the Timeturner..."
+echo ""
+echo "─────────────────────────────────────────────"
+echo "  Welcome to the NTP Timeturner Installer"
+echo "─────────────────────────────────────────────"
+echo ""
+echo "\"It's a very complicated piece of magic...\" – Hermione Granger"
+echo "Initialising temporal calibration sequence..."
+echo "Requesting clearance from the Ministry of Time Standards..."
+echo ""
 
 # Update and upgrade packages
 sudo apt update && sudo apt upgrade -y
@@ -16,10 +23,14 @@ sudo apt install -y alsa-utils ffmpeg portaudio19-dev python3-pyaudio
 # LTC decoding tools
 sudo apt install -y ltc-tools
 
-# Optional: Network management (if needed later)
-# sudo apt install -y network-manager
-
 # Python packages
 pip3 install numpy
 
-echo "✅ Setup complete. Reboot recommended if this is the first run."
+echo ""
+echo "─────────────────────────────────────────────"
+echo "  Setup Complete"
+echo "─────────────────────────────────────────────"
+echo ""
+echo "The TimeTurner is ready. But remember:"
+echo "\"You must not be seen.\" – Hermione Granger"
+echo ""
