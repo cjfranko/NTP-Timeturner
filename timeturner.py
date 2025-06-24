@@ -4,9 +4,9 @@ import curses
 import subprocess
 import shutil
 import time
+import select
 
 def start_ltc_stream():
-    # Launch ffmpeg piped into ltcdump
     ffmpeg = subprocess.Popen(
         ["ffmpeg", "-f", "alsa", "-i", "default", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"],
         stdout=subprocess.PIPE,
@@ -17,39 +17,43 @@ def start_ltc_stream():
         stdin=ffmpeg.stdout,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
-        text=True
+        text=True,
+        bufsize=1  # Line-buffered
     )
-    ffmpeg.stdout.close()  # Let ltcdump consume the pipe
+    ffmpeg.stdout.close()
     return ffmpeg, ltcdump
 
 def main(stdscr):
     curses.curs_set(0)
     stdscr.nodelay(True)
 
-    stdscr.addstr(1, 2, "🌀 NTP Timeturner Status")
-    stdscr.addstr(3, 4, "Streaming LTC from default input...")
-
     ffmpeg_proc, ltcdump_proc = start_ltc_stream()
 
     latest_tc = "⌛ Waiting for LTC..."
-    last_refresh = time.time()
+    last_update = time.time()
 
     try:
         while True:
-            stdscr.clear()
+            # Check for new output from ltcdump (non-blocking)
+            rlist, _, _ = select.select([ltcdump_proc.stdout], [], [], 0)
+            if rlist:
+                line = ltcdump_proc.stdout.readline().strip()
+                if line and line[0].isdigit():
+                    latest_tc = line
+                    last_update = time.time()
+
+            # Detect stale or missing LTC
+            if time.time() - last_update > 1:
+                latest_tc = "⚠️  No LTC signal"
+
+            # UI
+            stdscr.erase()
             stdscr.addstr(1, 2, "🌀 NTP Timeturner Status")
             stdscr.addstr(3, 4, "Streaming LTC from default input...")
             stdscr.addstr(5, 6, f"🕰️ LTC Timecode: {latest_tc}")
             stdscr.refresh()
 
-            # Check if new LTC line available
-            if ltcdump_proc.stdout.readable():
-                line = ltcdump_proc.stdout.readline().strip()
-                if line and line[0].isdigit():
-                    latest_tc = line
-
-            # Limit screen redraw to ~10fps
-            time.sleep(0.1)
+            time.sleep(0.04)  # ~25 FPS
 
     except KeyboardInterrupt:
         stdscr.addstr(8, 6, "🔚 Shutting down...")
