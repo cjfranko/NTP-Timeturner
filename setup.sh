@@ -45,10 +45,22 @@ echo "Installing 'sounddevice' with pip3 (system-wide)..."
 pip3 install --break-system-packages sounddevice
 
 # ---------------------------------------------------------
-# Step 4: Build and install libltc (needed by ltc-tools)
+# Step 4: Download NTP Timeturner scripts and assets
 # ---------------------------------------------------------
 echo ""
-echo "Step 4: Building libltc (the heart of our time-magic)..."
+echo "Step 4: Downloading scripts and splash screen from GitHub..."
+cd /home/hermione
+
+wget -O timeturner.py https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/timeturner.py
+wget -O ltc_probe.py https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/ltc_probe.py
+wget -O test_audioinput.py https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/test_audioinput.py
+wget -O splash.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/splash.png
+
+# ---------------------------------------------------------
+# Step 5: Build and install libltc (needed by ltc-tools)
+# ---------------------------------------------------------
+echo ""
+echo "Step 5: Building libltc (the heart of our time-magic)..."
 cd ~
 if [ ! -d "libltc" ]; then
   echo "Cloning libltc from GitHub..."
@@ -72,10 +84,10 @@ sudo make install
 sudo ldconfig
 
 # ---------------------------------------------------------
-# Step 5: Build and install ltc-tools
+# Step 6: Build and install ltc-tools
 # ---------------------------------------------------------
 echo ""
-echo "Step 5: Building ltc-tools (with a gentle nudge)..."
+echo "Step 6: Building ltc-tools (with a gentle nudge)..."
 cd ~
 if [ ! -d "ltc-tools" ]; then
   echo "Cloning ltc-tools from GitHub..."
@@ -91,10 +103,10 @@ sudo make install
 sudo ldconfig
 
 # ---------------------------------------------------------
-# Step 6: Apply Custom Splash Screen
+# Step 7: Apply Custom Splash Screen
 # ---------------------------------------------------------
 echo ""
-echo "Step 6: Applying splash screen..."
+echo "Step 7: Applying splash screen..."
 if [ -f "/home/hermione/splash.png" ]; then
   sudo cp /home/hermione/splash.png /usr/share/plymouth/themes/pix/splash.png
   sudo chmod 644 /usr/share/plymouth/themes/pix/splash.png
@@ -104,10 +116,10 @@ else
 fi
 
 # ---------------------------------------------------------
-# Step 7: Make Python scripts executable
+# Step 8: Make Python scripts executable
 # ---------------------------------------------------------
 echo ""
-echo "Step 7: Making *.py scripts executable (if any)..."
+echo "Step 8: Making *.py scripts executable (if any)..."
 shopt -s nullglob
 PYFILES=(/home/hermione/*.py)
 if [ ${#PYFILES[@]} -gt 0 ]; then
