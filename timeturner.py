@@ -4,25 +4,34 @@ import curses
 import subprocess
 import time
 import shutil
-
-AUDIO_DEVICE = "hw:1"  # Change this if needed
+import tempfile
+import os
 
 def read_ltc():
-    ffmpeg = subprocess.Popen(
-        ["ffmpeg", "-f", "alsa", "-i", AUDIO_DEVICE, "-t", "1", "-f", "s16le", "-ac", "1", "-ar", "48000", "-"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL
-    )
-    ltcdump = subprocess.Popen(
-        ["ltcdump", "-f", "-"],
-        stdin=ffmpeg.stdout,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL
-    )
-    ffmpeg.stdout.close()
-    output, _ = ltcdump.communicate()
-    lines = output.decode().splitlines()
-    return lines[-1] if lines else "⚠️ No LTC signal"
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        wav_path = tmp.name
+
+    try:
+        # Record 1 second of audio from default device
+        subprocess.run([
+            "ffmpeg", "-f", "alsa", "-i", "default",
+            "-t", "1", "-ac", "1", "-ar", "48000", "-y", wav_path
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Decode LTC from the recorded file
+        result = subprocess.run(
+            ["ltcdump", wav_path],
+            capture_output=True,
+            text=True
+        )
+
+        lines = result.stdout.strip().splitlines()
+        ltc_lines = [line for line in lines if line and line[0].isdigit()]
+
+        return ltc_lines[-1] if ltc_lines else "⚠️ No LTC decoded"
+
+    finally:
+        os.remove(wav_path)
 
 def main(stdscr):
     curses.curs_set(0)
@@ -32,12 +41,12 @@ def main(stdscr):
         stdscr.clear()
 
         stdscr.addstr(1, 2, "🌀 NTP Timeturner Status")
-        stdscr.addstr(3, 4, "Reading LTC from audio device...")
+        stdscr.addstr(3, 4, "Reading LTC from default audio input...")
 
         try:
             ltc_timecode = read_ltc()
         except Exception as e:
-            ltc_timecode = f"Error: {e}"
+            ltc_timecode = f"❌ Error: {e}"
 
         stdscr.addstr(5, 6, f"🕰️ LTC Timecode: {ltc_timecode}")
 
@@ -45,9 +54,9 @@ def main(stdscr):
         time.sleep(1)
 
 if __name__ == "__main__":
-    # Pre-flight checks
+    # Pre-flight check
     if not shutil.which("ltcdump") or not shutil.which("ffmpeg"):
-        print("❌ Required tools not found (ltcdump, ffmpeg). Install and retry.")
+        print("❌ Required tools not found (ltcdump or ffmpeg). Install them and retry.")
         exit(1)
 
     curses.wrapper(main)
