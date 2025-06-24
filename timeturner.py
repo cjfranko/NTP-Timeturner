@@ -2,61 +2,66 @@
 
 import curses
 import subprocess
-import time
 import shutil
-import tempfile
-import os
+import time
 
-def read_ltc():
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        wav_path = tmp.name
-
-    try:
-        # Record 1 second of audio from default device
-        subprocess.run([
-            "ffmpeg", "-f", "alsa", "-i", "default",
-            "-t", "1", "-ac", "1", "-ar", "48000", "-y", wav_path
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        # Decode LTC from the recorded file
-        result = subprocess.run(
-            ["ltcdump", wav_path],
-            capture_output=True,
-            text=True
-        )
-
-        lines = result.stdout.strip().splitlines()
-        ltc_lines = [line for line in lines if line and line[0].isdigit()]
-
-        return ltc_lines[-1] if ltc_lines else "⚠️ No LTC decoded"
-
-    finally:
-        os.remove(wav_path)
+def start_ltc_stream():
+    # Launch ffmpeg piped into ltcdump
+    ffmpeg = subprocess.Popen(
+        ["ffmpeg", "-f", "alsa", "-i", "default", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL
+    )
+    ltcdump = subprocess.Popen(
+        ["ltcdump", "-f", "-"],
+        stdin=ffmpeg.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True
+    )
+    ffmpeg.stdout.close()  # Let ltcdump consume the pipe
+    return ffmpeg, ltcdump
 
 def main(stdscr):
     curses.curs_set(0)
     stdscr.nodelay(True)
 
-    while True:
-        stdscr.clear()
+    stdscr.addstr(1, 2, "🌀 NTP Timeturner Status")
+    stdscr.addstr(3, 4, "Streaming LTC from default input...")
 
-        stdscr.addstr(1, 2, "🌀 NTP Timeturner Status")
-        stdscr.addstr(3, 4, "Reading LTC from default audio input...")
+    ffmpeg_proc, ltcdump_proc = start_ltc_stream()
 
-        try:
-            ltc_timecode = read_ltc()
-        except Exception as e:
-            ltc_timecode = f"❌ Error: {e}"
+    latest_tc = "⌛ Waiting for LTC..."
+    last_refresh = time.time()
 
-        stdscr.addstr(5, 6, f"🕰️ LTC Timecode: {ltc_timecode}")
+    try:
+        while True:
+            stdscr.clear()
+            stdscr.addstr(1, 2, "🌀 NTP Timeturner Status")
+            stdscr.addstr(3, 4, "Streaming LTC from default input...")
+            stdscr.addstr(5, 6, f"🕰️ LTC Timecode: {latest_tc}")
+            stdscr.refresh()
 
+            # Check if new LTC line available
+            if ltcdump_proc.stdout.readable():
+                line = ltcdump_proc.stdout.readline().strip()
+                if line and line[0].isdigit():
+                    latest_tc = line
+
+            # Limit screen redraw to ~10fps
+            time.sleep(0.1)
+
+    except KeyboardInterrupt:
+        stdscr.addstr(8, 6, "🔚 Shutting down...")
         stdscr.refresh()
         time.sleep(1)
+    finally:
+        ffmpeg_proc.terminate()
+        ltcdump_proc.terminate()
 
 if __name__ == "__main__":
-    # Pre-flight check
     if not shutil.which("ltcdump") or not shutil.which("ffmpeg"):
-        print("❌ Required tools not found (ltcdump or ffmpeg). Install them and retry.")
+        print("❌ Required tools not found (ltcdump or ffmpeg). Install and retry.")
         exit(1)
 
     curses.wrapper(main)
