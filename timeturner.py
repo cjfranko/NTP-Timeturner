@@ -7,9 +7,8 @@ import time
 import select
 
 def start_ltc_stream():
-    # Launch ffmpeg piped into ltcdump
     ffmpeg = subprocess.Popen(
-        ["ffmpeg", "-f", "alsa", "-i", "default", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"],
+        ["ffmpeg", "-f", "alsa", "-i", "hw:2", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL
     )
@@ -19,10 +18,11 @@ def start_ltc_stream():
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,
-        bufsize=1  # Line-buffered
+        bufsize=1
     )
-    ffmpeg.stdout.close()  # Let ltcdump consume the pipe
+    ffmpeg.stdout.close()
     return ffmpeg, ltcdump
+
 
 def main(stdscr):
     curses.curs_set(0)
