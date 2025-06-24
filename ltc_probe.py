@@ -15,13 +15,12 @@ CHANNELS = 1
 MIN_EDGES = 1000  # sanity threshold
 
 def detect_rising_edges(signal):
-    # signal: flattened 1D numpy array
     above_zero = signal > 0
     edges = np.where(np.logical_and(~above_zero[:-1], above_zero[1:]))[0]
     return edges
 
 def analyze_pulse_durations(edges, samplerate):
-    durations = np.diff(edges) / samplerate  # in seconds
+    durations = np.diff(edges) / samplerate
     if len(durations) == 0:
         return None
 
@@ -41,7 +40,7 @@ def analyze_pulse_durations(edges, samplerate):
 def verdict(pulse_data):
     if pulse_data is None or pulse_data["count"] < MIN_EDGES:
         return "❌ No signal or not enough pulses"
-    elif 30 < pulse_data["short_pct"] < 70:
+    elif 20 <= pulse_data["short_pct"] <= 80:
         return f"✅ LTC-like bi-phase signal detected ({pulse_data['count']} pulses)"
     else:
         return f"⚠️ Inconsistent signal — may be non-LTC or noisy"
