@@ -7,6 +7,7 @@ import time
 import select
 
 def start_ltc_stream():
+    # Launch ffmpeg piped into ltcdump
     ffmpeg = subprocess.Popen(
         ["ffmpeg", "-f", "alsa", "-i", "default", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"],
         stdout=subprocess.PIPE,
@@ -20,7 +21,7 @@ def start_ltc_stream():
         text=True,
         bufsize=1  # Line-buffered
     )
-    ffmpeg.stdout.close()
+    ffmpeg.stdout.close()  # Let ltcdump consume the pipe
     return ffmpeg, ltcdump
 
 def main(stdscr):
@@ -34,19 +35,24 @@ def main(stdscr):
 
     try:
         while True:
-            # Check for new output from ltcdump (non-blocking)
+            # Check for new LTC output (non-blocking)
             rlist, _, _ = select.select([ltcdump_proc.stdout], [], [], 0)
             if rlist:
-                line = ltcdump_proc.stdout.readline().strip()
-                if line and line[0].isdigit():
-                    latest_tc = line
-                    last_update = time.time()
+                line = ltcdump_proc.stdout.readline()
+                if line:
+                    line = line.strip()
+                    if line and line[0].isdigit():
+                        latest_tc = line
+                        last_update = time.time()
 
-            # Detect stale or missing LTC
+            # Check if signal or subprocess died
             if time.time() - last_update > 1:
-                latest_tc = "⚠️  No LTC signal"
+                if ltcdump_proc.poll() is not None or ffmpeg_proc.poll() is not None:
+                    latest_tc = "💥 Decoder crashed or stream stopped"
+                else:
+                    latest_tc = "⚠️  No LTC signal"
 
-            # UI
+            # Draw UI
             stdscr.erase()
             stdscr.addstr(1, 2, "🌀 NTP Timeturner Status")
             stdscr.addstr(3, 4, "Streaming LTC from default input...")
