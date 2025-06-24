@@ -37,8 +37,12 @@ sudo apt install -y alsa-utils ffmpeg \
   portaudio19-dev python3-pyaudio \
   libasound2-dev libjack-jackd2-dev \
   libsndfile-dev \
-  python3-numpy python3-matplotlib python3-sounddevice \
+  python3-numpy python3-matplotlib \
   || echo "Warning: Some audio dependencies may have failed to install — continuing anyway."
+
+echo ""
+echo "Installing 'sounddevice' with pip3 (system-wide)..."
+pip3 install --break-system-packages sounddevice
 
 # ---------------------------------------------------------
 # Step 4: Build and install libltc (needed by ltc-tools)
