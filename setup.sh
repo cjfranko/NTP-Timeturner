@@ -33,12 +33,7 @@ sudo apt install -y git curl python3 python3-pip build-essential autoconf automa
 # ---------------------------------------------------------
 echo ""
 echo "Step 3: Installing audio libraries and tools..."
-sudo apt install -y alsa-utils ffmpeg \
-  portaudio19-dev python3-pyaudio \
-  libasound2-dev libjack-jackd2-dev \
-  libsndfile-dev \
-  python3-numpy python3-matplotlib \
-  || echo "Warning: Some audio dependencies may have failed to install — continuing anyway."
+sudo apt install -y alsa-utils ffmpeg   portaudio19-dev python3-pyaudio   libasound2-dev libjack-jackd2-dev   libsndfile-dev   python3-numpy python3-matplotlib   || echo "Warning: Some audio dependencies may have failed to install — continuing anyway."
 
 echo ""
 echo "Installing 'sounddevice' with pip3 (system-wide)..."
@@ -57,10 +52,10 @@ wget -O test_audioinput.py https://raw.githubusercontent.com/cjfranko/NTP-Timetu
 wget -O splash.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/splash.png
 
 # ---------------------------------------------------------
-# Step 5: Build and install libltc (needed by ltc-tools)
+# Step 5: Build and install libltc (the heart of our time-magic)
 # ---------------------------------------------------------
 echo ""
-echo "Step 5: Building libltc (the heart of our time-magic)..."
+echo "Step 5: Building libltc..."
 cd ~
 if [ ! -d "libltc" ]; then
   echo "Cloning libltc from GitHub..."
@@ -84,19 +79,19 @@ sudo make install
 sudo ldconfig
 
 # ---------------------------------------------------------
-# Step 6: Build and install ltc-tools
+# Step 6: Clone and build custom ltc-tools (with ltcstream)
 # ---------------------------------------------------------
 echo ""
-echo "Step 6: Building ltc-tools (with a gentle nudge)..."
+echo "Step 6: Building custom ltc-tools (ltc-tools-timeturner)..."
 cd ~
-if [ ! -d "ltc-tools" ]; then
-  echo "Cloning ltc-tools from GitHub..."
-  git clone https://github.com/x42/ltc-tools.git
+if [ ! -d "ltc-tools-timeturner" ]; then
+  echo "Cloning your custom ltc-tools fork..."
+  git clone https://github.com/cjfranko/ltc-tools-timeturner.git
 fi
-cd ltc-tools
+cd ltc-tools-timeturner
 
-echo "Compiling ltc-tools (bypassing package check)..."
-make HAVE_LIBLTC=true
+echo "Compiling ltc-tools and ltcstream..."
+make HAVE_LIBLTC=true LOADLIBES="-lasound"
 
 echo "Installing ltc-tools..."
 sudo make install
@@ -119,7 +114,7 @@ fi
 # Step 8: Make Python scripts executable
 # ---------------------------------------------------------
 echo ""
-echo "Step 8: Making *.py scripts executable (if any)..."
+echo "Step 8: Making *.py scripts executable..."
 shopt -s nullglob
 PYFILES=(/home/hermione/*.py)
 if [ ${#PYFILES[@]} -gt 0 ]; then

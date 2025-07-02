@@ -1,120 +1,83 @@
-﻿#!/usr/bin/env python3
-
-import curses
-import subprocess
+﻿import numpy as np
+import sounddevice as sd
+import scipy.signal as signal
+import matplotlib.pyplot as plt
 import time
-import shutil
-import fcntl
-import os
-import errno
-from datetime import datetime
 
-MAX_LOG_LINES = 5
+# --- Configuration ---
+SAMPLE_RATE = 48000
+CUTOFF_FREQ = 1000.0
+BLOCK_SIZE = 2048
+SYNC_WORD = "0011111111111101"
 
-def set_nonblocking(fileobj):
-    fd = fileobj.fileno()
-    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+# --- Filtering ---
+def highpass_filter(data, cutoff=CUTOFF_FREQ, fs=SAMPLE_RATE, order=5):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = signal.butter(order, normal_cutoff, btype='high', analog=False)
+    return signal.lfilter(b, a, data)
 
-def nonblocking_readline(output):
-    try:
-        return output.readline()
-    except IOError as e:
-        if e.errno == errno.EAGAIN:
-            return ""
-        else:
-            raise
+# --- Edge Detection ---
+def detect_edges(data):
+    return np.where(np.diff(np.signbit(data)))[0]
 
-def frame_to_int(line):
-    try:
-        return int(line.strip().split(":")[-1])
-    except Exception:
-        return None
+# --- Pulse Width to Bitstream ---
+def classify_bits(edges, fs):
+    durations = np.diff(edges) / fs
+    threshold = np.median(durations) * 1.2
+    bits = ['1' if dur < threshold else '0' for dur in durations]
+    return bits, durations, threshold
 
-def start_ltc_stream(log_lines):
-    try:
-        ffmpeg = subprocess.Popen(
-            ["ffmpeg", "-f", "alsa", "-i", "default", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL
-        )
-        ltcdump = subprocess.Popen(
-            ["ltcdump", "-f", "-"],
-            stdin=ffmpeg.stdout,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        ffmpeg.stdout.close()
-        set_nonblocking(ltcdump.stdout)
-        set_nonblocking(ltcdump.stderr)
-        log_lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Subprocesses started successfully")
-        return ffmpeg, ltcdump
-    except Exception as e:
-        log_lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Failed to start subprocesses: {e}")
-        return None, None
+# --- LTC Sync & Decode ---
+def extract_ltc_frame(bitstream):
+    bits = ''.join(bitstream)
+    idx = bits.find(SYNC_WORD)
+    if idx != -1 and idx + 80 <= len(bits):
+        return bits[idx:idx+80], idx
+    return None, None
 
-def main(stdscr):
-    curses.curs_set(0)
-    stdscr.nodelay(True)
+def decode_timecode(bits):
+    def bcd(b): return int(b[0:4], 2) + 10 * int(b[4:8], 2)
+    frames = bcd(bits[0:8])
+    seconds = bcd(bits[16:24])
+    minutes = bcd(bits[32:40])
+    hours = bcd(bits[48:56])
+    return f"{hours:02}:{minutes:02}:{seconds:02}:{frames:02}"
 
-    log_lines = []
-    ffmpeg_proc, ltcdump_proc = start_ltc_stream(log_lines)
+# --- Stream Callback ---
+def process(indata, frames, time_info, status):
+    audio = indata[:, 0]
+    filtered = highpass_filter(audio)
 
-    last_tc = "⌛ Waiting for LTC..."
-    last_frame = None
-    fail_count = 0
+    peak_db = 20 * np.log10(np.max(np.abs(filtered)) + 1e-6)
+    print(f"🎚️  Input Level: {peak_db:.2f} dB")
 
-    while True:
-        # Check for subprocess failure
-        if ffmpeg_proc and ffmpeg_proc.poll() is not None:
-            log_lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ ffmpeg exited (code {ffmpeg_proc.returncode})")
-            ffmpeg_proc = None
-        if ltcdump_proc and ltcdump_proc.poll() is not None:
-            err_output = ltcdump_proc.stderr.read().strip()
-            log_lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ ltcdump exited (code {ltcdump_proc.returncode})")
-            if err_output:
-                log_lines.append(err_output.splitlines()[-1])
-            ltcdump_proc = None
+    edges = detect_edges(filtered)
+    print(f"📎 Found {len(edges)} edges.")
 
-        # Read LTC line if possible
-        if ltcdump_proc:
-            try:
-                line = nonblocking_readline(ltcdump_proc.stdout).strip()
-                if line and line[0].isdigit():
-                    current_frame = frame_to_int(line)
-                    if last_frame is not None and current_frame is not None:
-                        delta = abs(current_frame - last_frame)
-                        if delta > 3:
-                            log_lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ Timecode jump: Δ{delta} frames")
-                    last_tc = line
-                    last_frame = current_frame
-                elif line:
-                    fail_count += 1
-            except Exception as e:
-                log_lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ Read error: {e}")
-                fail_count += 1
+    if len(edges) < 10:
+        return
 
-        log_lines = log_lines[-MAX_LOG_LINES:]
+    bits, durations, threshold = classify_bits(edges, SAMPLE_RATE)
+    print(f"📊 Avg pulse width: {np.mean(durations):.5f} sec")
+    print(f"📊 Min: {np.min(durations):.5f}, Max: {np.max(durations):.5f}")
+    print(f"🔧 Adaptive threshold: {threshold:.5f} sec")
+    print(f"🧮 Extracted {len(bits)} bits.")
+    print(f"🧾 Bitstream (first 80 bits):\n{''.join(bits[:80])}")
 
-        # Draw UI
-        stdscr.clear()
-        stdscr.addstr(1, 2, "🌀 NTP Timeturner Status")
-        stdscr.addstr(3, 4, "Streaming LTC from default input..." if ltcdump_proc else "⚠️ LTC decoder inactive")
+    frame, idx = extract_ltc_frame(bits)
+    if frame:
+        print(f"🔓 Sync word found at bit {idx}")
+        print(f"✅ LTC Timecode: {decode_timecode(frame)}")
+    else:
+        print(f"⚠️ No valid LTC frame detected.")
 
-        stdscr.addstr(5, 6, f"🕰️ LTC Timecode: {last_tc}")
-        stdscr.addstr(6, 6, f"❌ Decode Failures: {fail_count}")
+# --- Main ---
+print("🔊 Starting real-time audio stream...")
 
-        stdscr.addstr(8, 4, "📜 Logs:")
-        for i, log in enumerate(log_lines):
-            stdscr.addstr(9 + i, 6, log[:curses.COLS - 8])
-
-        stdscr.refresh()
-        time.sleep(1)
-
-if __name__ == "__main__":
-    if not shutil.which("ltcdump") or not shutil.which("ffmpeg"):
-        print("❌ Required tools not found (ltcdump or ffmpeg). Install and retry.")
-        exit(1)
-
-    curses.wrapper(main)
+try:
+    with sd.InputStream(callback=process, channels=1, samplerate=SAMPLE_RATE, blocksize=BLOCK_SIZE):
+        while True:
+            time.sleep(0.5)
+except KeyboardInterrupt:
+    print("🛑 Stopped by user.")
