@@ -8,7 +8,7 @@ Inspired by the TimeTurner in the Harry Potter series, this project synchronises
 
 ## 📦 Hardware Requirements
 
-- Raspberry Pi 3 (or better)
+- Raspberry Pi 5 (Dev Platform) but should be supported by Pi v3 (or better)
 - Debian Bookworm (64-bit recommended)
 - Teensy 4.0 - https://thepihut.com/products/teensy-4-0-headers
 - Audio Adapter Board for Teensy 4.0 (Rev D) - https://thepihut.com/products/audio-adapter-board-for-teensy-4-0
