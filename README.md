@@ -12,7 +12,7 @@ Inspired by the TimeTurner in the Harry Potter series, this project synchronises
 - Debian Bookworm (64-bit recommended)
 - Teensy 4.0 - https://thepihut.com/products/teensy-4-0-headers
 - Audio Adapter Board for Teensy 4.0 (Rev D) - https://thepihut.com/products/audio-adapter-board-for-teensy-4-0
-- Ethernet connection (recommended for stable NTP)
+- Ethernet connection (recommended for stable NTP broadcast)
 - Optional: LTC generator for input testing - Windows/Mac App - https://timecodesync.com/generator/
 
 ---
