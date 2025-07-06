@@ -2,7 +2,7 @@
 
 **An LTC-driven NTP server for Raspberry Pi, built with broadcast precision and a hint of magic.**
 
-Inspired by Hermione Granger’s TimeTurner, this project synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP — with precision down to the millisecond.
+Inspired by the TimeTurner in the Harry Potter series, this project synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP — with precision as Hermione would insist upon.
 
 ---
 
@@ -10,15 +10,16 @@ Inspired by Hermione Granger’s TimeTurner, this project synchronises timecode-
 
 - Raspberry Pi 3 (or better)
 - Debian Bookworm (64-bit recommended)
-- USB audio input (e.g. USB to 3.5mm TRS adapter)
+- Teensy 4.0 - https://thepihut.com/products/teensy-4-0-headers
+- Audio Adapter Board for Teensy 4.0 (Rev D) - https://thepihut.com/products/audio-adapter-board-for-teensy-4-0
 - Ethernet connection (recommended for stable NTP)
-- Optional: Blackmagic Video Assist or LTC generator for input testing
+- Optional: LTC generator for input testing - Windows/Mac App - https://timecodesync.com/generator/
 
 ---
 
 ## 🛠️ Software Features
 
-- Reads SMPTE LTC from audio input (25p/50i to start, with more frame rate support to follow)
+- Reads SMPTE LTC from Audio Interface (3.5mm TRS but adaptable to BNC/XLR)
 - Converts LTC into NTP-synced time
 - Broadcasts time via local NTP server
 - Supports configurable time offsets (hours, minutes, seconds, milliseconds)
