@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-import sys
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding='utf-8')
-
 import serial
 import re
 
@@ -16,10 +11,10 @@ ltc_pattern = re.compile(
 )
 
 def main():
-    print(f"🔌 Connecting to serial port: {SERIAL_PORT} @ {BAUD_RATE} baud")
+    print(f"[INFO] Connecting to serial port: {SERIAL_PORT} @ {BAUD_RATE} baud")
     try:
         with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as ser:
-            print("📡 Listening for LTC messages...\n")
+            print("[INFO] Listening for LTC messages...\n")
             while True:
                 line = ser.readline().decode(errors='ignore').strip()
                 match = ltc_pattern.match(line)
@@ -27,16 +22,16 @@ def main():
                     status, timecode, framerate = match.groups()
                     framerate = framerate.upper()
                     if status == "LOCK":
-                        print(f"🔒 {status:<4} | ⏱ {timecode} | 🎞 {framerate}")
+                        print(f"[LOCK] {status:<4} | Timecode: {timecode} | Rate: {framerate}")
                     else:
-                        print(f"🟡 {status:<4} | ⏱ {timecode} | 🎞 {framerate}")
+                        print(f"[FREE] {status:<4} | Timecode: {timecode} | Rate: {framerate}")
                 else:
                     if line:
-                        print(f"⚠️ Unrecognised line: {line}")
+                        print(f"[WARN] Unrecognised line: {line}")
     except serial.SerialException as e:
-        print(f"❌ Serial error: {e}")
+        print(f"[ERROR] Serial error: {e}")
     except KeyboardInterrupt:
-        print("\n🛑 Stopped by user.")
+        print("\n[EXIT] Stopped by user.")
 
 if __name__ == "__main__":
     main()
