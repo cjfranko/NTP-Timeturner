@@ -1,12 +1,14 @@
 import serial
 import re
 
-# Adjust this as needed
+# Adjust as needed
 SERIAL_PORT = "/dev/ttyACM0"
 BAUD_RATE = 115200
 
-# Case-insensitive pattern for: [LOCK] 10:00:00:00 | 25.00fps or FPS
-ltc_pattern = re.compile(r"\[(LOCK|FREE)\]\s+(\d{2}:\d{2}:\d{2}:\d{2})\s+\|\s+([\d.]+fps)", re.IGNORECASE)
+# Updated pattern to match drop-frame (;) and non-drop (:) timecode
+ltc_pattern = re.compile(
+    r"\[(LOCK|FREE)\]\s+(\d{2}:\d{2}:\d{2}[:;]\d{2})\s+\|\s+([\d.]+fps)", re.IGNORECASE
+)
 
 def main():
     print(f"🔌 Connecting to serial port: {SERIAL_PORT} @ {BAUD_RATE} baud")
@@ -18,7 +20,7 @@ def main():
                 match = ltc_pattern.match(line)
                 if match:
                     status, timecode, framerate = match.groups()
-                    framerate = framerate.upper()  # Standardise to FPS
+                    framerate = framerate.upper()
                     if status == "LOCK":
                         print(f"🔒 {status:<4} | ⏱ {timecode} | 🎞 {framerate}")
                     else:
