@@ -5,8 +5,8 @@ import re
 SERIAL_PORT = "/dev/ttyACM0"
 BAUD_RATE = 115200
 
-# Regex pattern to match: [LOCK] 10:00:00:00 | 24.00FPS
-ltc_pattern = re.compile(r"\[(LOCK|FREE)\]\s+(\d{2}:\d{2}:\d{2}:\d{2})\s+\|\s+([\d.]+FPS)")
+# Case-insensitive pattern for: [LOCK] 10:00:00:00 | 25.00fps or FPS
+ltc_pattern = re.compile(r"\[(LOCK|FREE)\]\s+(\d{2}:\d{2}:\d{2}:\d{2})\s+\|\s+([\d.]+fps)", re.IGNORECASE)
 
 def main():
     print(f"🔌 Connecting to serial port: {SERIAL_PORT} @ {BAUD_RATE} baud")
@@ -18,10 +18,11 @@ def main():
                 match = ltc_pattern.match(line)
                 if match:
                     status, timecode, framerate = match.groups()
+                    framerate = framerate.upper()  # Standardise to FPS
                     if status == "LOCK":
-                        print(f"🔒 {status}  |  ⏱ {timecode}  |  🎞 {framerate}")
+                        print(f"🔒 {status:<4} | ⏱ {timecode} | 🎞 {framerate}")
                     else:
-                        print(f"🟡 {status} |  ⏱ {timecode}  |  🎞 {framerate}")
+                        print(f"🟡 {status:<4} | ⏱ {timecode} | 🎞 {framerate}")
                 else:
                     if line:
                         print(f"⚠️ Unrecognised line: {line}")
