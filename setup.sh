@@ -26,7 +26,7 @@ sudo apt install -y git curl python3 python3-pip build-essential cmake \
 # ---------------------------------------------------------
 # Step 3: Install Arduino CLI manually
 # ---------------------------------------------------------
-echo "Step 3: Installing arduino-cli manually..."
+echo "Step 3: Installing arduino-cli manually... from home"
 cd "$HOME"
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
 sudo mv bin/arduino-cli /usr/local/bin/
