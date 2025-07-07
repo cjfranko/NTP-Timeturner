@@ -4,11 +4,22 @@ import serial
 import subprocess
 import time
 import re
+import glob
+import os
 
-SERIAL_PORT = "/dev/ttyUSB0"
 BAUD_RATE = 115200
-
 line_regex = re.compile(r"\[(LOCK|FREE)\]\s+(\d{2}:\d{2}:\d{2}[:;]\d{2})\s+\|\s+([\d.]+)fps")
+
+def find_serial_port():
+    candidates = sorted(glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyUSB*'))
+    for port in candidates:
+        try:
+            s = serial.Serial(port, BAUD_RATE, timeout=1)
+            s.close()
+            return port
+        except serial.SerialException:
+            continue
+    return None
 
 def parse_ltc_line(line):
     match = line_regex.match(line.strip())
@@ -32,12 +43,26 @@ def run_curses(stdscr):
     curses.start_color()
     curses.use_default_colors()
 
-    curses.init_pair(1, curses.COLOR_GREEN, -1)   # LOCK
-    curses.init_pair(2, curses.COLOR_YELLOW, -1)  # FREE
-    curses.init_pair(3, curses.COLOR_RED, -1)     # LOST
-    curses.init_pair(4, curses.COLOR_CYAN, -1)    # Offset
+    curses.init_pair(1, curses.COLOR_GREEN, -1)
+    curses.init_pair(2, curses.COLOR_YELLOW, -1)
+    curses.init_pair(3, curses.COLOR_RED, -1)
+    curses.init_pair(4, curses.COLOR_CYAN, -1)
 
-    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+    serial_port = find_serial_port()
+    if not serial_port:
+        stdscr.addstr(0, 0, "❌ Could not find Teensy serial port (ACM/USB).")
+        stdscr.refresh()
+        time.sleep(3)
+        return
+
+    try:
+        ser = serial.Serial(serial_port, BAUD_RATE, timeout=1)
+    except Exception as e:
+        stdscr.addstr(0, 0, f"❌ Failed to open {serial_port}: {e}")
+        stdscr.refresh()
+        time.sleep(3)
+        return
+
     lock_count = 0
     free_count = 0
     last_ltc_dt = None
@@ -64,7 +89,6 @@ def run_curses(stdscr):
 
                 if sync_requested and not syncing:
                     syncing = True
-                    # Snap to this LTC frame's HH:MM:SS (no frames)
                     new_time = last_ltc_dt.strftime("%H:%M:%S")
                     try:
                         subprocess.run(["sudo", "date", "-s", new_time], check=True)
@@ -74,7 +98,6 @@ def run_curses(stdscr):
                     sync_requested = False
                     syncing = False
 
-        # Calculate offset
         if last_ltc_dt:
             sys_time = now.replace(microsecond=0)
             offset = (sys_time - last_ltc_dt).total_seconds()
@@ -84,11 +107,10 @@ def run_curses(stdscr):
         else:
             offset_str = "n/a"
 
-        # Draw UI
         stdscr.erase()
         stdscr.addstr(0, 0, "NTP Timeturner v0.5")
-        stdscr.addstr(2, 0, "LTC Status   : ")
-
+        stdscr.addstr(1, 0, f"Using Serial Port: {serial_port}")
+        stdscr.addstr(3, 0, "LTC Status   : ")
         if last_status == "LOCK":
             stdscr.addstr("LOCK", curses.color_pair(1))
         elif last_status == "FREE":
@@ -96,21 +118,20 @@ def run_curses(stdscr):
         else:
             stdscr.addstr("LOST", curses.color_pair(3))
 
-        stdscr.addstr(3, 0, f"LTC Timecode : {last_ltc_dt.strftime('%H:%M:%S') if last_ltc_dt else 'n/a'}")
-        stdscr.addstr(4, 0, f"Frame Rate   : {frame_rate:.2f}fps")
-        stdscr.addstr(5, 0, f"System Clock : {now.strftime('%H:%M:%S.%f')[:-3]}")
-        stdscr.addstr(6, 0, "Sync Offset  : ")
+        stdscr.addstr(4, 0, f"LTC Timecode : {last_ltc_dt.strftime('%H:%M:%S') if last_ltc_dt else 'n/a'}")
+        stdscr.addstr(5, 0, f"Frame Rate   : {frame_rate:.2f}fps")
+        stdscr.addstr(6, 0, f"System Clock : {now.strftime('%H:%M:%S.%f')[:-3]}")
+        stdscr.addstr(7, 0, "Sync Offset  : ")
         stdscr.addstr(offset_str, curses.color_pair(4))
-        stdscr.addstr(7, 0, f"Lock Ratio   : {lock_count} LOCK / {free_count} FREE")
-        stdscr.addstr(9, 0, "[S] Set system clock to LTC    [Ctrl+C] Quit")
+        stdscr.addstr(8, 0, f"Lock Ratio   : {lock_count} LOCK / {free_count} FREE")
+        stdscr.addstr(10, 0, "[S] Set system clock to LTC    [Ctrl+C] Quit")
 
         if 'sync_feedback' in locals():
-            stdscr.addstr(11, 0, sync_feedback[:curses.COLS - 1])
+            stdscr.addstr(12, 0, sync_feedback[:curses.COLS - 1])
             del sync_feedback
 
         stdscr.refresh()
 
-        # Handle input
         stdscr.nodelay(True)
         try:
             key = stdscr.getch()
