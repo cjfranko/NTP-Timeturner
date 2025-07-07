@@ -21,7 +21,22 @@ sudo apt update && sudo apt upgrade -y
 # ---------------------------------------------------------
 echo "Step 2: Installing required tools..."
 sudo apt install -y git curl python3 python3-pip build-essential cmake \
-  teensy-loader-cli python3-serial
+  python3-serial
+
+# ---------------------------------------------------------
+# Step 2.5: Install teensy-loader-cli from source
+# ---------------------------------------------------------
+echo "Installing teensy-loader-cli manually from source..."
+cd "$HOME"
+if [ ! -d teensy_loader_cli ]; then
+  git clone https://github.com/PaulStoffregen/teensy_loader_cli.git
+fi
+cd teensy_loader_cli
+make
+sudo cp teensy_loader_cli /usr/local/bin/teensy-loader-cli
+
+echo "Verifying teensy-loader-cli..."
+teensy-loader-cli --version || echo "⚠️ teensy-loader-cli failed to install properly"
 
 # ---------------------------------------------------------
 # Step 3: Install Arduino CLI manually (latest version)
