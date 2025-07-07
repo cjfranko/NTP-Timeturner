@@ -27,6 +27,8 @@ sudo apt install -y git curl python3 python3-pip build-essential cmake \
 # Step 2.5: Install teensy-loader-cli from source
 # ---------------------------------------------------------
 echo "Installing teensy-loader-cli manually from source..."
+sudo apt install -y libusb-dev
+
 cd "$HOME"
 if [ ! -d teensy_loader_cli ]; then
   git clone https://github.com/PaulStoffregen/teensy_loader_cli.git
