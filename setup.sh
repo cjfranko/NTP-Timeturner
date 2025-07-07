@@ -33,7 +33,7 @@ if [ ! -d teensy_loader_cli ]; then
 fi
 cd teensy_loader_cli
 make
-sudo cp teensy_loader_cli /usr/local/bin/teensy-loader-cli
+sudo install -m 755 teensy_loader_cli /usr/local/bin/teensy-loader-cli
 
 echo "Verifying teensy-loader-cli..."
 teensy-loader-cli --version || echo "⚠️ teensy-loader-cli failed to install properly"
