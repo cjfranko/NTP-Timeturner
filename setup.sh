@@ -21,15 +21,29 @@ sudo apt update && sudo apt upgrade -y
 # ---------------------------------------------------------
 echo "Step 2: Installing tools and Python libraries..."
 sudo apt install -y git curl python3 python3-pip build-essential cmake \
-  arduino-cli teensy-loader-cli python3-serial
+  teensy-loader-cli python3-serial
 
-echo "Installing Python package: pylibltc"
+# ---------------------------------------------------------
+# Step 3: Install Arduino CLI manually
+# ---------------------------------------------------------
+echo "Step 3: Installing arduino-cli manually..."
+cd /home/pi
+curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+sudo mv bin/arduino-cli /usr/local/bin/
+
+echo "Verifying arduino-cli install..."
+arduino-cli version || echo "⚠️ arduino-cli install failed or not found in PATH"
+
+# ---------------------------------------------------------
+# Step 4: Install Python package(s)
+# ---------------------------------------------------------
+echo "Step 4: Installing Python packages..."
 pip3 install --break-system-packages pylibltc
 
 # ---------------------------------------------------------
-# Step 3: Download and apply splash screen
+# Step 5: Download and apply splash screen
 # ---------------------------------------------------------
-echo "Step 3: Downloading and applying splash screen..."
+echo "Step 5: Downloading and applying splash screen..."
 cd /home/pi
 wget -O splash.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/splash.png
 
@@ -42,9 +56,9 @@ else
 fi
 
 # ---------------------------------------------------------
-# Step 4: Download Teensy firmware and flash if available
+# Step 6: Download Teensy firmware and flash if available
 # ---------------------------------------------------------
-echo "Step 4: Downloading firmware..."
+echo "Step 6: Downloading Teensy firmware..."
 cd /home/pi
 wget -O ltc_audiohat_lock.ino.hex https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/firmware/ltc_audiohat_lock.ino.hex
 
