@@ -47,7 +47,7 @@ wget -O 49-teensy.rules https://www.pjrc.com/teensy/49-teensy.rules
 sudo cp 49-teensy.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 sudo udevadm trigger
-echo "✅ Teensy udev rules installed. Reboot required to take effect."
+echo "✅ Teensy udev rules installed. Reboot required to take full effect."
 
 # ---------------------------------------------------------
 # Step 3: Install Arduino CLI manually (latest version)
@@ -78,6 +78,33 @@ else
 fi
 
 # ---------------------------------------------------------
+# Step 4.5: Configure Plymouth to stay on screen longer
+# ---------------------------------------------------------
+echo "Step 4.5: Configuring splash screen timing..."
+
+# Ensure 'quiet splash' is in /boot/cmdline.txt
+sudo sed -i 's/\(\s*\)console=tty1/\1quiet splash console=tty1/' /boot/cmdline.txt
+echo "✅ Set 'quiet splash' in /boot/cmdline.txt"
+
+# Update Plymouth config
+sudo sed -i 's/^Theme=.*/Theme=pix/' /etc/plymouth/plymouthd.conf
+sudo sed -i 's/^ShowDelay=.*/ShowDelay=0/' /etc/plymouth/plymouthd.conf || echo "ShowDelay=0" | sudo tee -a /etc/plymouth/plymouthd.conf
+sudo sed -i 's/^DeviceTimeout=.*/DeviceTimeout=10/' /etc/plymouth/plymouthd.conf || echo "DeviceTimeout=10" | sudo tee -a /etc/plymouth/plymouthd.conf
+sudo sed -i 's/^DisableFadeIn=.*/DisableFadeIn=true/' /etc/plymouth/plymouthd.conf || echo "DisableFadeIn=true" | sudo tee -a /etc/plymouth/plymouthd.conf
+echo "✅ Updated /etc/plymouth/plymouthd.conf"
+
+# Create autostart delay to keep splash visible until desktop is ready
+mkdir -p "$HOME/.config/autostart"
+cat << EOF > "$HOME/.config/autostart/delayed-plymouth-exit.desktop"
+[Desktop Entry]
+Type=Application
+Name=Delayed Plymouth Exit
+Exec=/bin/sh -c "sleep 3 && /usr/bin/plymouth quit"
+X-GNOME-Autostart-enabled=true
+EOF
+echo "✅ Splash screen will exit 3 seconds after desktop starts"
+
+# ---------------------------------------------------------
 # Step 5: Download Teensy firmware
 # ---------------------------------------------------------
 echo "Step 5: Downloading Teensy firmware..."
@@ -85,57 +112,14 @@ cd "$HOME"
 wget -O ltc_audiohat_lock.ino.hex https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/firmware/ltc_audiohat_lock.ino.hex
 
 # ---------------------------------------------------------
-# Step 6: Create flash script and one-time service
-# ---------------------------------------------------------
-echo "Step 6: Creating one-time flash script and service..."
-cat << 'EOF' > "$HOME/flash_teensy_once.sh"
-#!/bin/bash
-echo "🔧 Running one-time Teensy flash..."
-if ls /dev/ttyACM* 1> /dev/null 2>&1; then
-  echo "✅ Teensy detected. Flashing firmware..."
-  /usr/local/bin/teensy-loader-cli --mcu=TEENSY40 -w -v "$HOME/ltc_audiohat_lock.ino.hex"
-  echo "✅ Firmware upload complete."
-else
-  echo "⚠️ No Teensy detected on /dev/ttyACM* — skipping flash."
-fi
-
-# Clean up: remove script and disable this service
-rm -- "$HOME/flash_teensy_once.sh"
-systemctl --user disable flash-teensy.service
-rm -- "$HOME/.config/systemd/user/flash-teensy.service"
-EOF
-
-chmod +x "$HOME/flash_teensy_once.sh"
-
-mkdir -p "$HOME/.config/systemd/user"
-cat << EOF > "$HOME/.config/systemd/user/flash-teensy.service"
-[Unit]
-Description=One-time Teensy Flash
-After=default.target
-
-[Service]
-Type=oneshot
-ExecStart=$HOME/flash_teensy_once.sh
-RemainAfterExit=true
-
-[Install]
-WantedBy=default.target
-EOF
-
-systemctl --user daemon-reexec
-systemctl --user daemon-reload
-systemctl --user enable flash-teensy.service
-
-echo "✅ One-time flash service scheduled to run after reboot."
-
-# ---------------------------------------------------------
-# Final Message & Auto-Reboot
+# Final Message & Reboot
 # ---------------------------------------------------------
 echo ""
 echo "─────────────────────────────────────────────"
 echo "  Setup Complete — Rebooting in 15 seconds..."
 echo "─────────────────────────────────────────────"
-echo "Teensy will be flashed automatically on next boot (once)."
+echo "NOTE: Teensy firmware ready in $HOME, but not auto-flashed."
+echo "Boot splash will remain until desktop loads. "
 echo ""
 sleep 15
 sudo reboot
