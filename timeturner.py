@@ -23,6 +23,9 @@ offset_history = deque(maxlen=20)
 lock_total = 0
 free_total = 0
 hardware_offset_ms = 0
+ltc_locked = False
+lock_stable_since = None
+sync_enabled = False
 
 def load_config():
     global hardware_offset_ms
@@ -72,7 +75,9 @@ def format_time(dt):
     return dt.strftime("%H:%M:%S.%f")[:-3]
 
 def run_curses(stdscr):
-    global FRAME_RATE, sync_pending, SERIAL_PORT, latest_ltc, offset_history, lock_total, free_total
+    global FRAME_RATE, sync_pending, SERIAL_PORT, latest_ltc
+    global offset_history, lock_total, free_total
+    global ltc_locked, lock_stable_since, sync_enabled
 
     curses.curs_set(0)
     stdscr.nodelay(True)
@@ -96,33 +101,44 @@ def run_curses(stdscr):
                 parsed, arrival_time = ltc_data_queue.get_nowait()
                 latest_ltc = (parsed, arrival_time)
 
-                if parsed["status"] == "LOCK":
+                FRAME_RATE = parsed["frame_rate"]
+                status = parsed["status"]
+
+                if status == "LOCK":
                     lock_total += 1
+                    if not ltc_locked:
+                        lock_stable_since = time.time()
+                        ltc_locked = True
+                    elif time.time() - lock_stable_since > 1.0:
+                        sync_enabled = True
                 else:
                     free_total += 1
+                    ltc_locked = False
+                    sync_enabled = False
+                    lock_stable_since = None
+                    offset_history.clear()
 
-                offset_ms = (get_system_time() - arrival_time).total_seconds() * 1000 - hardware_offset_ms
-                offset_frames = offset_ms / (1000 / parsed["frame_rate"])
-                offset_history.append((offset_ms, offset_frames))
+                if ltc_locked and sync_enabled:
+                    offset_ms = (get_system_time() - arrival_time).total_seconds() * 1000 - hardware_offset_ms
+                    offset_frames = offset_ms / (1000 / FRAME_RATE)
+                    offset_history.append((offset_ms, offset_frames))
 
-                if sync_pending:
+                if sync_pending and ltc_locked and sync_enabled:
                     do_sync(stdscr, parsed, arrival_time)
                     sync_pending = False
 
             stdscr.erase()
-            stdscr.addstr(0, 2, "NTP Timeturner v1.1")
+            stdscr.addstr(0, 2, "NTP Timeturner v1.2")
             stdscr.addstr(1, 2, f"Using Serial Port: {SERIAL_PORT}")
 
             if latest_ltc:
                 parsed, arrival_time = latest_ltc
-                FRAME_RATE = parsed["frame_rate"]
-
                 stdscr.addstr(3, 2, f"LTC Status   : {parsed['status']}")
                 stdscr.addstr(4, 2, f"LTC Timecode : {parsed['hours']:02}:{parsed['minutes']:02}:{parsed['seconds']:02}:{parsed['frames']:02}")
                 stdscr.addstr(5, 2, f"Frame Rate   : {FRAME_RATE:.2f}fps")
                 stdscr.addstr(6, 2, f"System Clock : {format_time(get_system_time())}")
 
-                if offset_history:
+                if ltc_locked and sync_enabled and offset_history:
                     avg_ms = sum(x[0] for x in offset_history) / len(offset_history)
                     avg_frames = sum(x[1] for x in offset_history) / len(offset_history)
 
@@ -136,12 +152,21 @@ def run_curses(stdscr):
                     stdscr.attron(color)
                     stdscr.addstr(7, 2, f"Sync Offset  : {avg_ms:+.0f} ms ({avg_frames:+.0f} frames)")
                     stdscr.attroff(color)
+                elif parsed["status"] == "FREE":
+                    stdscr.attron(curses.color_pair(3))
+                    stdscr.addstr(7, 2, "⚠️  LTC UNSYNCED — offset unavailable")
+                    stdscr.attroff(curses.color_pair(3))
                 else:
                     stdscr.addstr(7, 2, "Sync Offset  : …")
 
                 total = lock_total + free_total
                 lock_pct = (lock_total / total) * 100 if total else 0
-                stdscr.addstr(8, 2, f"Lock Ratio   : {lock_pct:.1f}% LOCK")
+                if ltc_locked and sync_enabled:
+                    stdscr.addstr(8, 2, f"Lock Ratio   : {lock_pct:.1f}% LOCK")
+                else:
+                    stdscr.attron(curses.color_pair(3))
+                    stdscr.addstr(8, 2, f"Lock Ratio   : {lock_pct:.1f}% (not stable)")
+                    stdscr.attroff(curses.color_pair(3))
             else:
                 stdscr.addstr(3, 2, "LTC Status   : (waiting)")
                 stdscr.addstr(4, 2, "LTC Timecode : …")
@@ -150,11 +175,15 @@ def run_curses(stdscr):
                 stdscr.addstr(7, 2, "Sync Offset  : …")
                 stdscr.addstr(8, 2, "Lock Ratio   : …")
 
-            stdscr.addstr(10, 2, "[S] Set system clock to LTC    [Ctrl+C] Quit")
+            if sync_enabled:
+                stdscr.addstr(10, 2, "[S] Set system clock to LTC    [Ctrl+C] Quit")
+            else:
+                stdscr.addstr(10, 2, "(Sync disabled — LTC not locked)     [Ctrl+C] Quit")
+
             stdscr.refresh()
 
             key = stdscr.getch()
-            if key in (ord('s'), ord('S')) and latest_ltc:
+            if key in (ord('s'), ord('S')) and latest_ltc and sync_enabled:
                 sync_pending = True
 
         except KeyboardInterrupt:
