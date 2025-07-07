@@ -27,7 +27,7 @@ sudo apt install -y git curl python3 python3-pip build-essential cmake \
 # Step 3: Install Arduino CLI manually
 # ---------------------------------------------------------
 echo "Step 3: Installing arduino-cli manually..."
-cd /home/pi
+cd "$HOME"
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
 sudo mv bin/arduino-cli /usr/local/bin/
 
@@ -44,7 +44,7 @@ pip3 install --break-system-packages pylibltc
 # Step 5: Download and apply splash screen
 # ---------------------------------------------------------
 echo "Step 5: Downloading and applying splash screen..."
-cd /home/pi
+cd "$HOME"
 wget -O splash.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/splash.png
 
 if [ -f splash.png ]; then
@@ -59,7 +59,7 @@ fi
 # Step 6: Download Teensy firmware and flash if available
 # ---------------------------------------------------------
 echo "Step 6: Downloading Teensy firmware..."
-cd /home/pi
+cd "$HOME"
 wget -O ltc_audiohat_lock.ino.hex https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/firmware/ltc_audiohat_lock.ino.hex
 
 echo "Checking for connected Teensy 4.0..."
