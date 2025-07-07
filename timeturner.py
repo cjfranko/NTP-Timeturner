@@ -50,15 +50,15 @@ def run_curses(stdscr):
 
     serial_port = find_serial_port()
     if not serial_port:
-        stdscr.addstr(0, 0, "❌ Could not find Teensy serial port (ACM/USB).")
+        stdscr.addstr(0, 0, "Could not find Teensy serial port (ACM/USB).")
         stdscr.refresh()
         time.sleep(3)
         return
 
     try:
-        ser = serial.Serial(serial_port, BAUD_RATE, timeout=1)
+        ser = serial.Serial(serial_port, BAUD_RATE, timeout=0.1)
     except Exception as e:
-        stdscr.addstr(0, 0, f"❌ Failed to open {serial_port}: {e}")
+        stdscr.addstr(0, 0, f"Failed to open {serial_port}: {e}")
         stdscr.refresh()
         time.sleep(3)
         return
@@ -72,31 +72,38 @@ def run_curses(stdscr):
     sync_requested = False
     syncing = False
 
+    read_buffer = ""
+
     while True:
         now = get_system_time()
-        line = ser.readline().decode(errors='ignore').strip()
-        if line:
-            parsed = parse_ltc_line(line)
-            if parsed:
-                status, tc_str, fps = parsed
-                frame_rate = fps
-                last_ltc_dt = timecode_to_dt(tc_str)
-                last_status = status
-                if status == "LOCK":
-                    lock_count += 1
-                else:
-                    free_count += 1
+        try:
+            data = ser.read(128).decode(errors='ignore')
+            read_buffer += data
+            while '\n' in read_buffer:
+                line, read_buffer = read_buffer.split('\n', 1)
+                parsed = parse_ltc_line(line)
+                if parsed:
+                    status, tc_str, fps = parsed
+                    frame_rate = fps
+                    last_ltc_dt = timecode_to_dt(tc_str)
+                    last_status = status
+                    if status == "LOCK":
+                        lock_count += 1
+                    else:
+                        free_count += 1
 
-                if sync_requested and not syncing:
-                    syncing = True
-                    new_time = last_ltc_dt.strftime("%H:%M:%S")
-                    try:
-                        subprocess.run(["sudo", "date", "-s", new_time], check=True)
-                        sync_feedback = f"[OK] Clock set to {new_time}"
-                    except subprocess.CalledProcessError as e:
-                        sync_feedback = f"[ERR] Failed to sync: {e}"
-                    sync_requested = False
-                    syncing = False
+                    if sync_requested and not syncing:
+                        syncing = True
+                        new_time = last_ltc_dt.strftime("%H:%M:%S")
+                        try:
+                            subprocess.run(["sudo", "date", "-s", new_time], check=True)
+                            sync_feedback = f"[OK] Clock set to {new_time}"
+                        except subprocess.CalledProcessError as e:
+                            sync_feedback = f"[ERR] Failed to sync: {e}"
+                        sync_requested = False
+                        syncing = False
+        except Exception as e:
+            pass  # ignore serial read errors
 
         if last_ltc_dt:
             sys_time = now.replace(microsecond=0)
