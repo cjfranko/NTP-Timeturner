@@ -17,33 +17,29 @@ echo "Step 1: Updating package lists and upgrading..."
 sudo apt update && sudo apt upgrade -y
 
 # ---------------------------------------------------------
-# Step 2: Install core tools and Python requirements
+# Step 2: Install core tools and Python dependencies
 # ---------------------------------------------------------
-echo "Step 2: Installing tools and Python libraries..."
+echo "Step 2: Installing required tools..."
 sudo apt install -y git curl python3 python3-pip build-essential cmake \
   teensy-loader-cli python3-serial
 
 # ---------------------------------------------------------
-# Step 3: Install Arduino CLI manually
+# Step 3: Install Arduino CLI manually (latest version)
 # ---------------------------------------------------------
-echo "Step 3: Installing arduino-cli manually... from home"
+echo "Step 3: Downloading and installing arduino-cli..."
 cd "$HOME"
-curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-sudo mv bin/arduino-cli /usr/local/bin/
+curl -fsSL https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Linux_ARM64.tar.gz -o arduino-cli.tar.gz
+tar -xzf arduino-cli.tar.gz
+sudo mv arduino-cli /usr/local/bin/
+rm arduino-cli.tar.gz
 
 echo "Verifying arduino-cli install..."
 arduino-cli version || echo "⚠️ arduino-cli install failed or not found in PATH"
 
 # ---------------------------------------------------------
-# Step 4: Install Python package(s)
+# Step 4: Download and apply splash screen
 # ---------------------------------------------------------
-echo "Step 4: Installing Python packages..."
-pip3 install --break-system-packages pylibltc
-
-# ---------------------------------------------------------
-# Step 5: Download and apply splash screen
-# ---------------------------------------------------------
-echo "Step 5: Downloading and applying splash screen..."
+echo "Step 4: Downloading and applying splash screen..."
 cd "$HOME"
 wget -O splash.png https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/splash.png
 
@@ -56,9 +52,9 @@ else
 fi
 
 # ---------------------------------------------------------
-# Step 6: Download Teensy firmware and flash if available
+# Step 5: Download Teensy firmware and flash if available
 # ---------------------------------------------------------
-echo "Step 6: Downloading Teensy firmware..."
+echo "Step 5: Downloading Teensy firmware..."
 cd "$HOME"
 wget -O ltc_audiohat_lock.ino.hex https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/firmware/ltc_audiohat_lock.ino.hex
 
