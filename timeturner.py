@@ -5,16 +5,19 @@ import datetime
 import re
 import subprocess
 import os
+import threading
+import queue
 
 SERIAL_PORT = None
 BAUD_RATE = 115200
 FRAME_RATE = 25.0
 
-last_ltc_time = None
-last_frame = None
 lock_count = 0
 free_count = 0
 sync_pending = False
+
+ltc_data_queue = queue.Queue()
+latest_ltc = None
 
 def find_teensy_serial():
     for dev in os.listdir('/dev'):
@@ -36,6 +39,18 @@ def parse_ltc_line(line):
         "frame_rate": float(fps)
     }
 
+def serial_thread(port, baud, q):
+    try:
+        ser = serial.Serial(port, baud, timeout=1)
+        while True:
+            line = ser.readline().decode(errors='ignore').strip()
+            timestamp = datetime.datetime.now()
+            parsed = parse_ltc_line(line)
+            if parsed:
+                q.put((parsed, timestamp))
+    except Exception as e:
+        print(f"Serial thread error: {e}")
+
 def get_system_time():
     return datetime.datetime.now()
 
@@ -43,79 +58,65 @@ def format_time(dt):
     return dt.strftime("%H:%M:%S.%f")[:-3]
 
 def run_curses(stdscr):
-    global last_ltc_time, FRAME_RATE, lock_count, free_count, sync_pending, SERIAL_PORT
+    global FRAME_RATE, lock_count, free_count, sync_pending, SERIAL_PORT, latest_ltc
 
     curses.curs_set(0)
     stdscr.nodelay(True)
-    stdscr.timeout(100)
+    stdscr.timeout(50)
 
     SERIAL_PORT = find_teensy_serial()
     if not SERIAL_PORT:
-        stdscr.addstr(0, 0, "No serial device found.")
+        stdscr.addstr(0, 0, "❌ No serial device found.")
         stdscr.refresh()
-        time.sleep(3)
+        time.sleep(2)
         return
 
-    try:
-        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-    except Exception as e:
-        stdscr.addstr(0, 0, f"Error opening serial: {e}")
-        stdscr.refresh()
-        time.sleep(3)
-        return
+    # Start serial reader thread
+    thread = threading.Thread(target=serial_thread, args=(SERIAL_PORT, BAUD_RATE, ltc_data_queue), daemon=True)
+    thread.start()
 
     while True:
         try:
-            pre_read_time = datetime.datetime.now()
-            line = ser.readline().decode(errors='ignore').strip()
-            parsed = parse_ltc_line(line)
+            # Pull latest from queue if available
+            while not ltc_data_queue.empty():
+                parsed, arrival_time = ltc_data_queue.get_nowait()
+                latest_ltc = (parsed, arrival_time)
 
-            if parsed:
+            stdscr.erase()
+            stdscr.addstr(0, 2, "NTP Timeturner v0.9")
+            stdscr.addstr(1, 2, f"Using Serial Port: {SERIAL_PORT}")
+
+            if latest_ltc:
+                parsed, arrival_time = latest_ltc
                 FRAME_RATE = parsed["frame_rate"]
-
                 if parsed["status"] == "LOCK":
                     lock_count += 1
                 else:
                     free_count += 1
 
-                ms = int((parsed["frames"] / FRAME_RATE) * 1000)
-                ltc_dt = pre_read_time.replace(
-                    hour=parsed["hours"],
-                    minute=parsed["minutes"],
-                    second=parsed["seconds"],
-                    microsecond=ms * 1000
-                )
+                stdscr.addstr(3, 2, f"LTC Status   : {parsed['status']}")
+                stdscr.addstr(4, 2, f"LTC Timecode : {parsed['hours']:02}:{parsed['minutes']:02}:{parsed['seconds']:02}:{parsed['frames']:02}")
+                stdscr.addstr(5, 2, f"Frame Rate   : {FRAME_RATE:.2f}fps")
+                stdscr.addstr(6, 2, f"System Clock : {format_time(get_system_time())}")
 
-                last_ltc_time = ltc_dt
-                last_frame = parsed["frames"]
-
-                if sync_pending:
-                    do_sync(stdscr, ltc_dt)
-                    sync_pending = False
-
-            # Drawing UI
-            stdscr.erase()
-            stdscr.addstr(0, 2, f"NTP Timeturner v0.8")
-            stdscr.addstr(1, 2, f"Using Serial Port: {SERIAL_PORT}")
-            stdscr.addstr(3, 2, f"LTC Status   : {parsed['status'] if parsed else '…'}")
-            stdscr.addstr(4, 2, f"LTC Timecode : {parsed['hours']:02}:{parsed['minutes']:02}:{parsed['seconds']:02}:{parsed['frames']:02}" if parsed else "LTC Timecode : …")
-            stdscr.addstr(5, 2, f"Frame Rate   : {FRAME_RATE:.2f}fps")
-
-            now = get_system_time()
-            stdscr.addstr(6, 2, f"System Clock : {format_time(now)}")
-
-            if last_ltc_time:
-                offset_ms = (now - last_ltc_time).total_seconds() * 1000
+                offset_ms = (get_system_time() - arrival_time).total_seconds() * 1000
                 offset_frames = offset_ms / (1000 / FRAME_RATE)
                 stdscr.addstr(7, 2, f"Sync Offset  : {offset_ms:+.0f} ms ({offset_frames:+.0f} frames)")
+            else:
+                stdscr.addstr(3, 2, "LTC Status   : (waiting)")
+                stdscr.addstr(4, 2, "LTC Timecode : …")
+                stdscr.addstr(5, 2, "Frame Rate   : …")
+                stdscr.addstr(6, 2, f"System Clock : {format_time(get_system_time())}")
+                stdscr.addstr(7, 2, "Sync Offset  : …")
 
             stdscr.addstr(8, 2, f"Lock Ratio   : {lock_count} LOCK / {free_count} FREE")
             stdscr.addstr(10, 2, "[S] Set system clock to LTC    [Ctrl+C] Quit")
             stdscr.refresh()
 
             key = stdscr.getch()
-            if key in (ord('s'), ord('S')):
-                sync_pending = True
+            if key in (ord('s'), ord('S')) and latest_ltc:
+                do_sync(stdscr, latest_ltc[0], latest_ltc[1])
+                sync_pending = False
 
         except KeyboardInterrupt:
             break
@@ -124,11 +125,18 @@ def run_curses(stdscr):
             stdscr.refresh()
             time.sleep(1)
 
-def do_sync(stdscr, ltc_dt):
+def do_sync(stdscr, parsed, arrival_time):
     try:
-        timestamp = ltc_dt.strftime("%H:%M:%S.%f")[:-3]
+        ms = int((parsed["frames"] / parsed["frame_rate"]) * 1000)
+        sync_time = arrival_time.replace(
+            hour=parsed["hours"],
+            minute=parsed["minutes"],
+            second=parsed["seconds"],
+            microsecond=ms * 1000
+        )
+        timestamp = sync_time.strftime("%H:%M:%S.%f")[:-3]
         subprocess.run(["sudo", "date", "-s", timestamp], check=True)
-        stdscr.addstr(13, 2, f"✔️ System clock set to: {timestamp}")
+        stdscr.addstr(13, 2, f"✔️ Synced to LTC: {timestamp}")
     except Exception as e:
         stdscr.addstr(13, 2, f"❌ Sync failed: {e}")
 
