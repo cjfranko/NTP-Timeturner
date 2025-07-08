@@ -128,7 +128,7 @@ def run_curses(stdscr):
                     sync_pending = False
 
             stdscr.erase()
-            stdscr.addstr(0, 2, "NTP Timeturner v1.3")
+            stdscr.addstr(0, 2, "NTP Timeturner v1.2")
             stdscr.addstr(1, 2, f"Using Serial Port: {SERIAL_PORT}")
 
             if latest_ltc:
@@ -150,49 +150,35 @@ def run_curses(stdscr):
                         color = curses.color_pair(1)
 
                     stdscr.attron(color)
-                    stdscr.addstr(7, 2, f"Sync Jitter  : {avg_ms:+.0f} ms ({avg_frames:+.0f} frames)")
+                    stdscr.addstr(7, 2, f"Sync Offset  : {avg_ms:+.0f} ms ({avg_frames:+.0f} frames)")
                     stdscr.attroff(color)
                 elif parsed["status"] == "FREE":
                     stdscr.attron(curses.color_pair(3))
                     stdscr.addstr(7, 2, "⚠️  LTC UNSYNCED — offset unavailable")
                     stdscr.attroff(curses.color_pair(3))
                 else:
-                    stdscr.addstr(7, 2, "Sync Jitter  : …")
+                    stdscr.addstr(7, 2, "Sync Offset  : …")
 
-                # Timecode Match: Compare HH:MM:SS only
-                ltc_time_str = f"{parsed['hours']:02}:{parsed['minutes']:02}:{parsed['seconds']:02}"
-                system_time_str = get_system_time().strftime("%H:%M:%S")
-                if ltc_time_str == system_time_str:
-                    stdscr.attron(curses.color_pair(2))
-                    stdscr.addstr(8, 2, "Timecode Match: MATCHED")
-                    stdscr.attroff(curses.color_pair(2))
-                else:
-                    stdscr.attron(curses.color_pair(1))
-                    stdscr.addstr(8, 2, "Timecode Match: OUT OF SYNC")
-                    stdscr.attroff(curses.color_pair(1))
-
-                # Lock ratio
                 total = lock_total + free_total
                 lock_pct = (lock_total / total) * 100 if total else 0
                 if ltc_locked and sync_enabled:
-                    stdscr.addstr(9, 2, f"Lock Ratio   : {lock_pct:.1f}% LOCK")
+                    stdscr.addstr(8, 2, f"Lock Ratio   : {lock_pct:.1f}% LOCK")
                 else:
                     stdscr.attron(curses.color_pair(3))
-                    stdscr.addstr(9, 2, f"Lock Ratio   : {lock_pct:.1f}% (not stable)")
+                    stdscr.addstr(8, 2, f"Lock Ratio   : {lock_pct:.1f}% (not stable)")
                     stdscr.attroff(curses.color_pair(3))
             else:
                 stdscr.addstr(3, 2, "LTC Status   : (waiting)")
                 stdscr.addstr(4, 2, "LTC Timecode : …")
                 stdscr.addstr(5, 2, "Frame Rate   : …")
                 stdscr.addstr(6, 2, f"System Clock : {format_time(get_system_time())}")
-                stdscr.addstr(7, 2, "Sync Jitter  : …")
-                stdscr.addstr(8, 2, "Timecode Match: …")
-                stdscr.addstr(9, 2, "Lock Ratio   : …")
+                stdscr.addstr(7, 2, "Sync Offset  : …")
+                stdscr.addstr(8, 2, "Lock Ratio   : …")
 
             if sync_enabled:
-                stdscr.addstr(11, 2, "[S] Set system clock to LTC    [Ctrl+C] Quit")
+                stdscr.addstr(10, 2, "[S] Set system clock to LTC    [Ctrl+C] Quit")
             else:
-                stdscr.addstr(11, 2, "(Sync disabled — LTC not locked)     [Ctrl+C] Quit")
+                stdscr.addstr(10, 2, "(Sync disabled — LTC not locked)     [Ctrl+C] Quit")
 
             stdscr.refresh()
 
@@ -216,7 +202,7 @@ def do_sync(stdscr, parsed, arrival_time):
             second=parsed["seconds"],
             microsecond=(ms + hardware_offset_ms) * 1000
         )
-        timestamp = sync_time.strftime("%H:%M:%S")
+        timestamp = sync_time.strftime("%H:%M:%S.%f")[:-3]
         subprocess.run(["sudo", "date", "-s", timestamp], check=True)
         stdscr.addstr(13, 2, f"✔️ Synced to LTC: {timestamp}")
     except Exception as e:
