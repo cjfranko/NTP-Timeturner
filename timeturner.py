@@ -200,8 +200,8 @@ def run_curses(stdscr):
                 stdscr.addstr(4, 2, "LTC Timecode : …")
                 stdscr.addstr(5, 2, "Frame Rate   : …")
                 stdscr.addstr(6, 2, f"System Clock : {format_time(get_system_time())}")
-                stdscr.addstr(7, 2, "Sync Offset  : …")
-                stdscr.addstr(8, 2, "Timecode Match: …")
+                stdscr.addstr(7, 2, "Sync Jitter  : …")
+                stdscr.addstr(8, 2, "Sync Status  : …")
                 stdscr.addstr(9, 2, "Lock Ratio   : …")
 
             if sync_enabled:
