@@ -27,6 +27,9 @@ ltc_locked = False
 lock_stable_since = None
 sync_enabled = False
 
+last_match_check = 0
+timecode_match_status = "UNKNOWN"
+
 def load_config():
     global hardware_offset_ms
     try:
@@ -78,6 +81,7 @@ def run_curses(stdscr):
     global FRAME_RATE, sync_pending, SERIAL_PORT, latest_ltc
     global offset_history, lock_total, free_total
     global ltc_locked, lock_stable_since, sync_enabled
+    global last_match_check, timecode_match_status
 
     curses.curs_set(0)
     stdscr.nodelay(True)
@@ -97,6 +101,8 @@ def run_curses(stdscr):
 
     while True:
         try:
+            now = time.time()
+
             while not ltc_data_queue.empty():
                 parsed, arrival_time = ltc_data_queue.get_nowait()
                 latest_ltc = (parsed, arrival_time)
@@ -117,6 +123,7 @@ def run_curses(stdscr):
                     sync_enabled = False
                     lock_stable_since = None
                     offset_history.clear()
+                    timecode_match_status = "UNKNOWN"
 
                 if ltc_locked and sync_enabled:
                     offset_ms = (get_system_time() - arrival_time).total_seconds() * 1000 - hardware_offset_ms
@@ -127,8 +134,20 @@ def run_curses(stdscr):
                     do_sync(stdscr, parsed, arrival_time)
                     sync_pending = False
 
+            # Check timecode match every 5 seconds
+            if latest_ltc and now - last_match_check > 5:
+                parsed, _ = latest_ltc
+                system_time = get_system_time()
+                if (parsed["hours"] == system_time.hour and
+                    parsed["minutes"] == system_time.minute and
+                    parsed["seconds"] == system_time.second):
+                    timecode_match_status = "IN SYNC"
+                else:
+                    timecode_match_status = "OUT OF SYNC"
+                last_match_check = now
+
             stdscr.erase()
-            stdscr.addstr(0, 2, "NTP Timeturner v1.2")
+            stdscr.addstr(0, 2, "NTP Timeturner v1.3")
             stdscr.addstr(1, 2, f"Using Serial Port: {SERIAL_PORT}")
 
             if latest_ltc:
@@ -159,13 +178,22 @@ def run_curses(stdscr):
                 else:
                     stdscr.addstr(7, 2, "Sync Offset  : …")
 
+                # Timecode Match
+                if timecode_match_status == "IN SYNC":
+                    stdscr.attron(curses.color_pair(2))
+                elif timecode_match_status == "OUT OF SYNC":
+                    stdscr.attron(curses.color_pair(1))
+                stdscr.addstr(8, 2, f"Timecode Match: {timecode_match_status}")
+                stdscr.attroff(curses.color_pair(1))
+                stdscr.attroff(curses.color_pair(2))
+
                 total = lock_total + free_total
                 lock_pct = (lock_total / total) * 100 if total else 0
                 if ltc_locked and sync_enabled:
-                    stdscr.addstr(8, 2, f"Lock Ratio   : {lock_pct:.1f}% LOCK")
+                    stdscr.addstr(9, 2, f"Lock Ratio   : {lock_pct:.1f}% LOCK")
                 else:
                     stdscr.attron(curses.color_pair(3))
-                    stdscr.addstr(8, 2, f"Lock Ratio   : {lock_pct:.1f}% (not stable)")
+                    stdscr.addstr(9, 2, f"Lock Ratio   : {lock_pct:.1f}% (not stable)")
                     stdscr.attroff(curses.color_pair(3))
             else:
                 stdscr.addstr(3, 2, "LTC Status   : (waiting)")
@@ -173,12 +201,13 @@ def run_curses(stdscr):
                 stdscr.addstr(5, 2, "Frame Rate   : …")
                 stdscr.addstr(6, 2, f"System Clock : {format_time(get_system_time())}")
                 stdscr.addstr(7, 2, "Sync Offset  : …")
-                stdscr.addstr(8, 2, "Lock Ratio   : …")
+                stdscr.addstr(8, 2, "Timecode Match: …")
+                stdscr.addstr(9, 2, "Lock Ratio   : …")
 
             if sync_enabled:
-                stdscr.addstr(10, 2, "[S] Set system clock to LTC    [Ctrl+C] Quit")
+                stdscr.addstr(11, 2, "[S] Set system clock to LTC    [Ctrl+C] Quit")
             else:
-                stdscr.addstr(10, 2, "(Sync disabled — LTC not locked)     [Ctrl+C] Quit")
+                stdscr.addstr(11, 2, "(Sync disabled — LTC not locked)     [Ctrl+C] Quit")
 
             stdscr.refresh()
 
