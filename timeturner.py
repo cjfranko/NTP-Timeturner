@@ -26,11 +26,8 @@ latest_line = None
 latest_timestamp = None
 line_lock = Lock()
 
-# Rolling jitter calculation
-jitter_samples = deque(maxlen=25)
-last_jitter_update = time.time()
-displayed_jitter_ms = None
-displayed_jitter_frames = None
+# Sync Jitter buffer
+offset_buffer = deque(maxlen=50)
 
 # Load config
 if os.path.exists(CONFIG_FILE):
@@ -74,8 +71,6 @@ def serial_reader(port, baud):
                 latest_timestamp = datetime.datetime.now()
 
 def run_curses(stdscr):
-    global displayed_jitter_ms, displayed_jitter_frames, last_jitter_update
-
     curses.curs_set(0)
     stdscr.nodelay(True)
     stdscr.timeout(100)
@@ -90,9 +85,7 @@ def run_curses(stdscr):
 
     lock_count = 0
     free_count = 0
-    last_displayed_frame = ""
     sync_allowed = False
-    last_frame = None
 
     while True:
         now = datetime.datetime.now()
@@ -119,8 +112,8 @@ def run_curses(stdscr):
             stdscr.addstr(5, 2, f"LTC Timecode : {timecode_str}")
             stdscr.addstr(6, 2, f"Frame Rate   : {parsed['fps']:.2f}fps")
 
-            # Approximate LTC timecode as a datetime
-            ltc_time = timestamp.replace(
+            # Generate LTC datetime object
+            ltc_time = datetime.datetime.now().replace(
                 hour=parsed["hours"],
                 minute=parsed["minutes"],
                 second=parsed["seconds"],
@@ -131,36 +124,34 @@ def run_curses(stdscr):
             system_time = datetime.datetime.now()
             stdscr.addstr(7, 2, f"System Clock : {system_time.strftime('%H:%M:%S.%f')[:-3]}")
 
-            # Only calculate jitter if LOCKED
+            # Calculate Sync Jitter
             if lock_state == "LOCK":
                 offset_ms = (system_time - ltc_time).total_seconds() * 1000 - hardware_offset_ms
-                jitter_samples.append(offset_ms)
-
-                if time.time() - last_jitter_update >= 1.0:
-                    avg_offset = sum(jitter_samples) / len(jitter_samples)
-                    displayed_jitter_ms = avg_offset
+                offset_buffer.append(offset_ms)
+                if offset_buffer:
+                    avg_offset = sum(offset_buffer) / len(offset_buffer)
                     frame_error = round((avg_offset / 1000) * parsed["fps"])
-                    displayed_jitter_frames = frame_error
-                    last_jitter_update = time.time()
+                    stdscr.addstr(8, 2, f"Sync Jitter  : {avg_offset:+.0f} ms ({frame_error:+} frames)",
+                                  curses.color_pair(0 if abs(avg_offset) < 5 else 3))
+                else:
+                    stdscr.addstr(8, 2, f"Sync Jitter  : --")
+            else:
+                stdscr.addstr(8, 2, f"Sync Jitter  : -- (FREE mode)", curses.color_pair(3))
 
-                if displayed_jitter_ms is not None:
-                    stdscr.addstr(8, 2, f"Sync Jitter  : {displayed_jitter_ms:+.0f} ms ({displayed_jitter_frames:+} frames)",
-                                  curses.color_pair(0 if abs(displayed_jitter_ms) < 5 else 3))
-
-                # Compare timecode match
-                ltc_str = ltc_time.strftime('%H:%M:%S')
-                sys_str = system_time.strftime('%H:%M:%S')
-                if ltc_str == sys_str and parsed["frames"] == int((system_time.microsecond / 1_000_000) * parsed["fps"]):
+            # Timecode Match (HH:MM:SS only)
+            ltc_time_str = ltc_time.strftime('%H:%M:%S')
+            sys_time_str = system_time.strftime('%H:%M:%S')
+            if lock_state == "LOCK":
+                if ltc_time_str == sys_time_str:
                     stdscr.addstr(9, 2, "Timecode Match: MATCHED", curses.color_pair(2))
                 else:
                     stdscr.addstr(9, 2, "Timecode Match: OUT OF SYNC", curses.color_pair(3))
-
-                sync_allowed = True
             else:
-                stdscr.addstr(8, 2, f"Sync Jitter  : -- (FREE mode)", curses.color_pair(3))
-                stdscr.addstr(9, 2, f"Timecode Match: UNKNOWN", curses.color_pair(3))
-                sync_allowed = False
+                stdscr.addstr(9, 2, "Timecode Match: UNKNOWN", curses.color_pair(3))
 
+            sync_allowed = lock_state == "LOCK"
+
+            # Lock Ratio
             total = lock_count + free_count
             if total > 0:
                 lock_ratio = (lock_count / total) * 100
@@ -172,7 +163,8 @@ def run_curses(stdscr):
 
         key = stdscr.getch()
         if key in (ord('s'), ord('S')) and parsed and sync_allowed:
-            os.system(f"sudo date -s \"{timecode_str.replace(':', ':')}\"")
+            clock_str = f"{parsed['hours']:02}:{parsed['minutes']:02}:{parsed['seconds']:02}"
+            os.system(f"sudo date -s \"{clock_str}\"")
 
         stdscr.refresh()
         time.sleep(0.05)
