@@ -91,7 +91,7 @@ def run_curses(stdscr):
 
     SERIAL_PORT = find_teensy_serial()
     if not SERIAL_PORT:
-        stdscr.addstr(0, 0, "❌ No serial device found.")
+        stdscr.addstr(0, 0, "X No serial device found.")
         stdscr.refresh()
         time.sleep(2)
         return
@@ -169,21 +169,21 @@ def run_curses(stdscr):
                         color = curses.color_pair(1)
 
                     stdscr.attron(color)
-                    stdscr.addstr(7, 2, f"Sync Offset  : {avg_ms:+.0f} ms ({avg_frames:+.0f} frames)")
+                    stdscr.addstr(7, 2, f"Sync Jitter  : {avg_ms:+.0f} ms ({avg_frames:+.0f} frames)")
                     stdscr.attroff(color)
                 elif parsed["status"] == "FREE":
                     stdscr.attron(curses.color_pair(3))
-                    stdscr.addstr(7, 2, "⚠️  LTC UNSYNCED — offset unavailable")
+                    stdscr.addstr(7, 2, "⚠ LTC UNSYNCED — offset unavailable")
                     stdscr.attroff(curses.color_pair(3))
                 else:
-                    stdscr.addstr(7, 2, "Sync Offset  : …")
+                    stdscr.addstr(7, 2, "Sync Jitter  : …")
 
                 # Timecode Match
                 if timecode_match_status == "IN SYNC":
                     stdscr.attron(curses.color_pair(2))
                 elif timecode_match_status == "OUT OF SYNC":
                     stdscr.attron(curses.color_pair(1))
-                stdscr.addstr(8, 2, f"Timecode Match: {timecode_match_status}")
+                stdscr.addstr(8, 2, f"Sync Status  : {timecode_match_status}")
                 stdscr.attroff(curses.color_pair(1))
                 stdscr.attroff(curses.color_pair(2))
 
@@ -218,7 +218,7 @@ def run_curses(stdscr):
         except KeyboardInterrupt:
             break
         except Exception as e:
-            stdscr.addstr(13, 2, f"⚠️ Error: {e}")
+            stdscr.addstr(13, 2, f"⚠ Error: {e}")
             stdscr.refresh()
             time.sleep(1)
 
@@ -233,9 +233,9 @@ def do_sync(stdscr, parsed, arrival_time):
         )
         timestamp = sync_time.strftime("%H:%M:%S.%f")[:-3]
         subprocess.run(["sudo", "date", "-s", timestamp], check=True)
-        stdscr.addstr(13, 2, f"✔️ Synced to LTC: {timestamp}")
+        stdscr.addstr(13, 2, f"✔ Synced to LTC: {timestamp}")
     except Exception as e:
-        stdscr.addstr(13, 2, f"❌ Sync failed: {e}")
+        stdscr.addstr(13, 2, f"X Sync failed: {e}")
 
 if __name__ == "__main__":
     curses.initscr()
