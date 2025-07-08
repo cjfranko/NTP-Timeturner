@@ -147,7 +147,7 @@ def run_curses(stdscr):
                 last_match_check = now
 
             stdscr.erase()
-            stdscr.addstr(0, 2, "NTP Timeturner v1.3")
+            stdscr.addstr(0, 2, "NTP Timeturner v2 - Python Final")
             stdscr.addstr(1, 2, f"Using Serial Port: {SERIAL_PORT}")
 
             if latest_ltc:
