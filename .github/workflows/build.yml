@@ -41,7 +41,7 @@ jobs:
           sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
           sudo apt-get update -y
           # Install build tools and cross-compilation libraries for Raspberry Pi 5
-          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 pkg-config cmake
+          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 pkg-config cmake libudev-dev
           # Ensure pkg-config can find ARM64 libraries
           sudo apt-get install -y libpkgconf3:arm64
       - name: Install Rust dependencies
@@ -60,23 +60,11 @@ jobs:
           PKG_CONFIG_ALLOW_SYSTEM_CFLAGS: 1
           # Add library path for the cross-compiler's linker
           RUSTFLAGS: -L/usr/lib/aarch64-linux-gnu
-      - name: tests
-        run: cargo test --release --target ${{ env.RUST_TARGET }} --bin ntp_timeturner
-        env:
-          # Set linker for the target
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          # Configure pkg-config for cross-compilation
-          PKG_CONFIG_ALLOW_CROSS: 1
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          PKG_CONFIG_LIBDIR: /usr/lib/aarch64-linux-gnu/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /
-          PKG_CONFIG_ALLOW_SYSTEM_LIBS: 1
-          PKG_CONFIG_ALLOW_SYSTEM_CFLAGS: 1
-          # Add library path for the cross-compiler's linker
-          RUSTFLAGS: -L/usr/lib/aarch64-linux-gnu
+      - name: Run tests on native platform
+        run: cargo test --release --bin ntp_timeturner
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: timeturner-aarch64
-          path: target/${{ env.RUST_TARGET }}/release/timeturner
+          path: target/${{ env.RUST_TARGET }}/release/ntp_timeturner
