@@ -45,6 +45,9 @@ pub struct LtcState {
     pub offset_history: VecDeque<i64>,
     pub last_match_status: String,
     pub last_match_check: i64,
+    // PTP state
+    pub ptp_offset: Option<f64>,
+    pub ptp_state: String,
 }
 
 impl LtcState {
@@ -56,6 +59,8 @@ impl LtcState {
             offset_history: VecDeque::with_capacity(20),
             last_match_status: "UNKNOWN".into(),
             last_match_check: 0,
+            ptp_offset: None,
+            ptp_state: "Initializing".into(),
         }
     }
 

@@ -17,21 +17,25 @@ use crossterm::{
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
+use crate::config::Config;
 use crate::sync_logic::LtcState;
 
-/// Launch the TUI; reads `offset` live from the file-watcher.
+/// Launch the TUI; reads `config` live from the file-watcher.
 pub fn start_ui(
     state: Arc<Mutex<LtcState>>,
     serial_port: String,
-    offset: Arc<Mutex<i64>>,
+    config: Arc<Mutex<Config>>,
 ) {
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen).unwrap();
     terminal::enable_raw_mode().unwrap();
 
     loop {
-        // 1️⃣ Read current hardware offset
-        let hw_offset_ms = *offset.lock().unwrap();
+        // 1️⃣ Read current config
+        let (hw_offset_ms, ptp_enabled) = {
+            let cfg = config.lock().unwrap();
+            (cfg.hardware_offset_ms, cfg.ptp_enabled)
+        };
 
         // 2️⃣ Measure & record jitter only when LOCKED; clear on FREE
         {
@@ -95,6 +99,28 @@ pub fn start_ui(
                 Print(format!("System Clock : {}", sys_str))
             )
             .unwrap();
+        }
+
+        // PTP Status Display
+        if ptp_enabled {
+            if let Ok(st) = state.lock() {
+                let (ptp_state_str, ptp_offset_val) =
+                    (st.ptp_state.clone(), st.ptp_offset);
+
+                let offset_display = if let Some(offset) = ptp_offset_val {
+                    format!("{:.3}μs", offset / 1000.0)
+                } else {
+                    "N/A".to_string()
+                };
+
+                queue!(
+                    stdout,
+                    MoveTo(45, 1), Print("PTP Status"),
+                    MoveTo(45, 2), Print(format!("State  : {}", ptp_state_str)),
+                    MoveTo(45, 3), Print(format!("Offset : {}", offset_display)),
+                )
+                .unwrap();
+            }
         }
 
         // Footer

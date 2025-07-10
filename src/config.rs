@@ -12,50 +12,69 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Config {
     pub hardware_offset_ms: i64,
+    #[serde(default)]
+    pub ptp_enabled: bool,
+    #[serde(default = "default_ptp_interface")]
+    pub ptp_interface: String,
+}
+
+fn default_ptp_interface() -> String {
+    "eth0".to_string()
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            hardware_offset_ms: 0,
+            ptp_enabled: false,
+            ptp_interface: default_ptp_interface(),
+        }
+    }
 }
 
 impl Config {
     pub fn load(path: &PathBuf) -> Self {
         let mut file = match File::open(path) {
             Ok(f) => f,
-            Err(_) => return Self { hardware_offset_ms: 0 },
+            Err(_) => return Self::default(),
         };
         let mut contents = String::new();
         if file.read_to_string(&mut contents).is_err() {
-            return Self { hardware_offset_ms: 0 };
+            return Self::default();
         }
-        serde_json::from_str(&contents).unwrap_or(Self { hardware_offset_ms: 0 })
+        serde_json::from_str(&contents).unwrap_or_else(|e| {
+            eprintln!("Failed to parse config.json: {}, using default", e);
+            Self::default()
+        })
     }
 }
 
-pub fn watch_config(path: &str) -> Arc<Mutex<i64>> {
-    let initial = Config::load(&PathBuf::from(path)).hardware_offset_ms;
-    let offset = Arc::new(Mutex::new(initial));
+pub fn watch_config(path: &str) -> Arc<Mutex<Config>> {
+    let initial_config = Config::load(&PathBuf::from(path));
+    let config = Arc::new(Mutex::new(initial_config));
 
-    // Owned PathBuf for watch() call
     let watch_path = PathBuf::from(path);
-    // Clone for moving into the closure
     let watch_path_for_cb = watch_path.clone();
-    let offset_for_cb = Arc::clone(&offset);
+    let config_for_cb = Arc::clone(&config);
 
     std::thread::spawn(move || {
-        // Move `watch_path_for_cb` into the callback
-        let mut watcher: RecommendedWatcher = recommended_watcher(move |res: NotifyResult<Event>| {
+        let event_handler = move |res: NotifyResult<Event>| {
             if let Ok(evt) = res {
                 if matches!(evt.kind, EventKind::Modify(_)) {
                     let new_cfg = Config::load(&watch_path_for_cb);
-                    let mut hw = offset_for_cb.lock().unwrap();
-                    *hw = new_cfg.hardware_offset_ms;
-                    eprintln!("🔄 Reloaded hardware_offset_ms = {}", *hw);
+                    eprintln!("🔄 Reloaded config.json: {:?}", new_cfg);
+                    let mut cfg = config_for_cb.lock().unwrap();
+                    *cfg = new_cfg;
                 }
             }
-        })
-        .expect("Failed to create file watcher");
+        };
 
-        // Use the original `watch_path` here
+        let mut watcher: RecommendedWatcher =
+            recommended_watcher(event_handler).expect("Failed to create file watcher");
+
         watcher
             .watch(&watch_path, RecursiveMode::NonRecursive)
             .expect("Failed to watch config.json");
@@ -65,5 +84,5 @@ pub fn watch_config(path: &str) -> Arc<Mutex<i64>> {
         }
     });
 
-    offset
+    config
 }

@@ -1,19 +1,22 @@
 ﻿// src/main.rs
 
+
 mod config;
-mod sync_logic;
+mod ptp;
 mod serial_input;
+mod sync_logic;
 mod ui;
 
 use crate::config::watch_config;
-use crate::sync_logic::LtcState;
+use crate::ptp::start_ptp_client;
 use crate::serial_input::start_serial_thread;
+use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
 
 use std::{
     fs,
     path::Path,
-    sync::{Arc, Mutex, mpsc},
+    sync::{mpsc, Arc, Mutex},
     thread,
 };
 
@@ -30,13 +33,15 @@ fn ensure_config() {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // 🔄 Ensure there's always a config.json present
     ensure_config();
+    env_logger::init();
 
     // 1️⃣ Start watching config.json for changes
-    let hw_offset = watch_config("config.json");
-    println!("🔧 Watching config.json (hardware_offset_ms)...");
+    let config_arc = watch_config("config.json");
+    println!("🔧 Watching config.json...");
 
     // 2️⃣ Channel for raw LTC frames
     let (tx, rx) = mpsc::channel();
@@ -62,19 +67,29 @@ fn main() {
         });
     }
 
-    // 5️⃣ Spawn the UI renderer thread, passing the live offset Arc
+    // 5️⃣ Spawn PTP client task
     {
-        let ui_state     = ltc_state.clone();
-        let offset_clone = hw_offset.clone();
-        let port         = "/dev/ttyACM0".to_string();
-        thread::spawn(move || {
-            println!("🖥️ UI thread launched");
-            start_ui(ui_state, port, offset_clone);
+        let ptp_state = ltc_state.clone();
+        let config_clone = config_arc.clone();
+        tokio::spawn(async move {
+            println!("🚀 PTP task launched");
+            start_ptp_client(ptp_state, config_clone).await;
         });
     }
 
-    // 6️⃣ Keep main thread alive
-    println!("📡 Main thread entering loop...");
+    // 6️⃣ Spawn the UI renderer thread, passing the live config Arc
+    {
+        let ui_state = ltc_state.clone();
+        let config_clone = config_arc.clone();
+        let port = "/dev/ttyACM0".to_string();
+        thread::spawn(move || {
+            println!("🖥️ UI thread launched");
+            start_ui(ui_state, port, config_clone);
+        });
+    }
+
+    // 7️⃣ Keep main thread alive for LTC frames
+    println!("📡 Main thread entering LTC frame loop...");
     for _frame in rx {
         // no-op
     }
