@@ -27,9 +27,12 @@ jobs:
 
       - name: Install cross-compilation dependencies
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update -y
-          sudo apt-get update -y
-          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev
+          # Install build tools and cross-compilation libraries.
+          # cmake is included as it's in setup.sh and might be needed by a dependency.
+          # The :arm64 suffix is required for cross-compilation.
+          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 cmake
 
       - name: Build release binary
         run: cargo build --release --target ${{ env.RUST_TARGET }}
