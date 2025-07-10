@@ -65,6 +65,8 @@ jobs:
         run: cargo test --release
       - name: Run PTP integration tests
         run: cargo test ptp_integration_test --release
+      - name: Run all library tests
+        run: cargo test --lib --release
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
