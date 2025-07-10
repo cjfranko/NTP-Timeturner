@@ -160,27 +160,110 @@ async fn run_ptp_session(
             return Ok(());
         }
 
-        // Handle events and collect new actions
+        // Handle events and process actions immediately to avoid borrowing conflicts
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_millis(100)) => {
-                // Handle timer events sequentially to avoid multiple mutable borrows
-                actions.extend(running_port.handle_sync_timer());
-                actions.extend(running_port.handle_announce_timer(&mut NoForwardedTLVs));
-                actions.extend(running_port.handle_delay_request_timer());
+                // Handle timer events one by one and process actions immediately
+                for action in running_port.handle_sync_timer() {
+                    match action {
+                        PortAction::SendEvent { data, .. } => {
+                            let dest = "224.0.1.129:319";
+                            if let Err(e) = event_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP event packet: {}", e);
+                            }
+                        }
+                        PortAction::SendGeneral { data, .. } => {
+                            let dest = "224.0.1.129:320";
+                            if let Err(e) = general_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP general packet: {}", e);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                
+                for action in running_port.handle_announce_timer(&mut NoForwardedTLVs) {
+                    match action {
+                        PortAction::SendEvent { data, .. } => {
+                            let dest = "224.0.1.129:319";
+                            if let Err(e) = event_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP event packet: {}", e);
+                            }
+                        }
+                        PortAction::SendGeneral { data, .. } => {
+                            let dest = "224.0.1.129:320";
+                            if let Err(e) = general_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP general packet: {}", e);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                
+                for action in running_port.handle_delay_request_timer() {
+                    match action {
+                        PortAction::SendEvent { data, .. } => {
+                            let dest = "224.0.1.129:319";
+                            if let Err(e) = event_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP event packet: {}", e);
+                            }
+                        }
+                        PortAction::SendGeneral { data, .. } => {
+                            let dest = "224.0.1.129:320";
+                            if let Err(e) = general_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP general packet: {}", e);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             }
             Ok((len, _source_address)) = event_socket.recv_from(&mut event_buf) => {
                 let receive_time = Time::from_nanos(std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_nanos() as u64);
-                actions.extend(running_port.handle_event_receive(&event_buf[..len], receive_time));
+                
+                for action in running_port.handle_event_receive(&event_buf[..len], receive_time) {
+                    match action {
+                        PortAction::SendEvent { data, .. } => {
+                            let dest = "224.0.1.129:319";
+                            if let Err(e) = event_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP event packet: {}", e);
+                            }
+                        }
+                        PortAction::SendGeneral { data, .. } => {
+                            let dest = "224.0.1.129:320";
+                            if let Err(e) = general_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP general packet: {}", e);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             }
             Ok((len, _source_address)) = general_socket.recv_from(&mut general_buf) => {
-                actions.extend(running_port.handle_general_receive(&general_buf[..len]));
+                for action in running_port.handle_general_receive(&general_buf[..len]) {
+                    match action {
+                        PortAction::SendEvent { data, .. } => {
+                            let dest = "224.0.1.129:319";
+                            if let Err(e) = event_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP event packet: {}", e);
+                            }
+                        }
+                        PortAction::SendGeneral { data, .. } => {
+                            let dest = "224.0.1.129:320";
+                            if let Err(e) = general_socket.send_to(data, dest).await {
+                                log::error!("Error sending PTP general packet: {}", e);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
 
-        // Update shared state periodically (after all mutable operations are done)
+        // Update shared state periodically (no borrowing conflicts now)
         if last_state_update.elapsed() > Duration::from_millis(500) {
             let port_ds = running_port.port_ds();
             let mut st = state.lock().unwrap();
