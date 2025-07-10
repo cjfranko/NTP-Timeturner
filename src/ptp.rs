@@ -2,12 +2,15 @@ use crate::config::Config;
 use crate::sync_logic::LtcState;
 use rand::thread_rng;
 use statime::{
-    config::{InstanceConfig, PortConfig, TimePropertiesDS},
-    filter::moving_average::MovingAverageFilter,
+    config::{
+        AcceptAnyMaster, ClockIdentity, ClockQuality, DelayMechanism, InstanceConfig, PortConfig,
+        TimePropertiesDS, TimeSource,
+    },
+    filters::BasicFilter,
     port::PortAction,
-    ClockIdentity, PtpInstance,
+    OverlayClock, PtpInstance, SharedClock,
 };
-use statime_linux::{clock::LinuxClock, udp::LinuxUdpHandles};
+use statime_linux::{clock::SystemClock, net::LinuxUdpHandles};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
@@ -60,24 +63,36 @@ async fn run_ptp_session(
     let initial_interface = interface.clone();
 
     // 1. Create configs
-    // A PTP client doesn't need a stable identity.
-    let clock_identity = ClockIdentity::new([0x00, 0x11, 0x22, 0xFF, 0xFE, 0x33, 0x44, 0x55]);
-    let instance_config = InstanceConfig::new(clock_identity, 128, 128, 0);
-    let time_properties_ds = TimePropertiesDS::default();
+    let instance_config = InstanceConfig {
+        clock_identity: ClockIdentity::from_mac_address(&[0x00, 0x11, 0x22, 0xFF, 0xFE, 0x33, 0x44, 0x55]),
+        priority_1: 128,
+        priority_2: 128,
+        domain_number: 0,
+        slave_only: false,
+        sdo_id: Default::default(),
+        path_trace: false,
+        clock_quality: ClockQuality::default(),
+    };
+    let time_properties_ds =
+        TimePropertiesDS::new_arbitrary_time(false, false, TimeSource::InternalOscillator);
 
     // 2. Create PtpInstance
-    let mut ptp_instance = PtpInstance::new(instance_config, time_properties_ds);
+    let mut ptp_instance = PtpInstance::<BasicFilter>::new(instance_config, time_properties_ds);
 
     // 3. Create PortConfig
-    let mut port_config = PortConfig::new(interface.into());
-    port_config.use_hardware_timestamping = false;
+    let port_config = PortConfig {
+        iface: interface.into(),
+        use_hardware_timestamping: false,
+        acceptable_master_list: AcceptAnyMaster,
+        delay_mechanism: DelayMechanism::EndToEnd,
+    };
 
     // 4. Create Clock and Filter
-    let clock = LinuxClock::new();
-    let filter = MovingAverageFilter::new(20);
+    let clock = SharedClock::new(OverlayClock::new(SystemClock::new()));
+    let filter_config = ();
 
     // 5. Add port and run BMCA
-    let mut port = ptp_instance.add_port(port_config.clone(), clock, filter, thread_rng())?;
+    let mut port = ptp_instance.add_port(port_config.clone(), filter_config, clock, thread_rng())?;
     ptp_instance.bmca(&mut [&mut port]);
     let mut running_port = port.end_bmca()?;
 
@@ -124,17 +139,21 @@ async fn run_ptp_session(
 
         for action in actions {
             match action {
-                PortAction::SendMessage(message) => {
-                    let handle = if message.event {
+                PortAction::Send {
+                    destination,
+                    data,
+                    event,
+                } => {
+                    let handle = if event {
                         &mut event_handle
                     } else {
                         &mut general_handle
                     };
-                    if let Err(e) = handle.send(message.data, message.destination).await {
+                    if let Err(e) = handle.send(data, destination).await {
                         log::error!("Error sending PTP packet: {}", e);
                     }
                 }
-                PortAction::ToBmca => {
+                PortAction::Reset => {
                     log::warn!("PTP port is resetting");
                     ptp_instance.bmca(&mut [&mut running_port.start_bmca()]);
                     running_port = running_port.start_bmca().end_bmca()?;
