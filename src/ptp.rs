@@ -163,35 +163,24 @@ async fn run_ptp_session(
         // Handle events and collect new actions
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_millis(100)) => {
-                // Handle periodic timer events one at a time to avoid multiple mutable borrows
-                let sync_actions: Vec<_> = running_port.handle_sync_timer().collect();
-                actions.extend(sync_actions);
-                
-                let announce_actions: Vec<_> = running_port.handle_announce_timer(&mut NoForwardedTLVs).collect();
-                actions.extend(announce_actions);
-                
-                let delay_actions: Vec<_> = running_port.handle_delay_request_timer().collect();
-                actions.extend(delay_actions);
+                // Handle timer events sequentially to avoid multiple mutable borrows
+                actions.extend(running_port.handle_sync_timer());
+                actions.extend(running_port.handle_announce_timer(&mut NoForwardedTLVs));
+                actions.extend(running_port.handle_delay_request_timer());
             }
             Ok((len, _source_address)) = event_socket.recv_from(&mut event_buf) => {
                 let receive_time = Time::from_nanos(std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_nanos() as u64);
-                // Copy the data to avoid borrowing conflicts
-                let data = event_buf[..len].to_vec();
-                let event_actions: Vec<_> = running_port.handle_event_receive(&data, receive_time).collect();
-                actions.extend(event_actions);
+                actions.extend(running_port.handle_event_receive(&event_buf[..len], receive_time));
             }
             Ok((len, _source_address)) = general_socket.recv_from(&mut general_buf) => {
-                // Copy the data to avoid borrowing conflicts
-                let data = general_buf[..len].to_vec();
-                let general_actions: Vec<_> = running_port.handle_general_receive(&data).collect();
-                actions.extend(general_actions);
+                actions.extend(running_port.handle_general_receive(&general_buf[..len]));
             }
         }
 
-        // Update shared state periodically
+        // Update shared state periodically (after all mutable operations are done)
         if last_state_update.elapsed() > Duration::from_millis(500) {
             let port_ds = running_port.port_ds();
             let mut st = state.lock().unwrap();
