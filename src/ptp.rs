@@ -4,14 +4,14 @@ use rand::thread_rng;
 use statime::{
     config::{
         AcceptAnyMaster, ClockIdentity, ClockQuality, DelayMechanism, InstanceConfig, PortConfig,
-        TimePropertiesDS, TimeSource,
+        PtpMinorVersion, TimePropertiesDS, TimeSource,
     },
     filters::BasicFilter,
-    port::PortAction,
+    port::{PortAction, SendMessage},
     time::{Duration as PtpDuration, Interval},
-    Clock, OverlayClock, PtpInstance, SharedClock,
+    OverlayClock, PtpInstance, SharedClock,
 };
-use statime_linux::{net::LinuxUdpHandles, SystemClock};
+use statime_linux::{net_udp::LinuxUdpHandles, SystemClock};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
@@ -78,18 +78,17 @@ async fn run_ptp_session(
 
     // 2. Create PtpInstance
     let mut ptp_instance = PtpInstance::<BasicFilter>::new(instance_config, time_properties_ds);
-    ptp_instance.set_clock_quality(ClockQuality::default());
 
     // 3. Create PortConfig
     let port_config = PortConfig {
         acceptable_master_list: AcceptAnyMaster,
-        delay_mechanism: DelayMechanism::E2E,
-        announce_interval: Interval::from_log2(0).unwrap(),
+        delay_mechanism: DelayMechanism::E2E(Interval::from_log_2(0)),
+        announce_interval: Interval::from_log_2(0),
         announce_receipt_timeout: 2,
-        sync_interval: Interval::from_log2(0).unwrap(),
+        sync_interval: Interval::from_log_2(0),
         master_only: false,
         delay_asymmetry: PtpDuration::default(),
-        minor_ptp_version: 1,
+        minor_ptp_version: PtpMinorVersion::PTP_2_1,
     };
 
     // 4. Create Clock and Filter
@@ -127,19 +126,13 @@ async fn run_ptp_session(
 
         tokio::select! {
             _ = tokio::time::sleep_until(timer_instant) => {
-                if let Some(action) = running_port.handle_timer() {
-                    actions.push(action);
-                }
+                actions.extend(running_port.handle_timer());
             }
             Ok((message, source_address)) = event_handle.recv() => {
-                if let Some(action) = running_port.handle_message(&message, source_address) {
-                    actions.push(action);
-                }
+                actions.extend(running_port.handle_message(&message, source_address));
             }
             Ok((message, source_address)) = general_handle.recv() => {
-                if let Some(action) = running_port.handle_message(&message, source_address) {
-                    actions.push(action);
-                }
+                actions.extend(running_port.handle_message(&message, source_address));
             }
         }
 
