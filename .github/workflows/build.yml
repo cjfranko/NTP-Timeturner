@@ -29,7 +29,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get update -y
-          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64
+          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev
 
       - name: Build release binary
         run: cargo build --release --target ${{ env.RUST_TARGET }}
