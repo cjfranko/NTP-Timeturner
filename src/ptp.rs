@@ -7,8 +7,8 @@ use statime::{
         PtpMinorVersion, TimePropertiesDS, TimeSource,
     },
     filters::BasicFilter,
-    port::PortAction,
-    time::{Duration as PtpDuration, Interval},
+    port::{NoForwardedTLVs, PortAction},
+    time::{Duration as PtpDuration, Interval, Time},
     OverlayClock, PtpInstance, SharedClock,
 };
 use socket2::{Domain, Protocol, Socket, Type};
@@ -165,14 +165,18 @@ async fn run_ptp_session(
             _ = tokio::time::sleep(Duration::from_millis(100)) => {
                 // Handle periodic timer events
                 actions.extend(running_port.handle_sync_timer());
-                actions.extend(running_port.handle_announce_timer());
+                actions.extend(running_port.handle_announce_timer(&mut NoForwardedTLVs));
                 actions.extend(running_port.handle_delay_request_timer());
             }
-            Ok((len, source_address)) = event_socket.recv_from(&mut event_buf) => {
-                actions.extend(running_port.handle_event_receive(&event_buf[..len], source_address));
+            Ok((len, _source_address)) = event_socket.recv_from(&mut event_buf) => {
+                let receive_time = Time::from_nanos(std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos() as i64);
+                actions.extend(running_port.handle_event_receive(&event_buf[..len], receive_time));
             }
-            Ok((len, source_address)) = general_socket.recv_from(&mut general_buf) => {
-                actions.extend(running_port.handle_general_receive(&general_buf[..len], source_address));
+            Ok((len, _source_address)) = general_socket.recv_from(&mut general_buf) => {
+                actions.extend(running_port.handle_general_receive(&general_buf[..len]));
             }
         }
 
