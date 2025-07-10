@@ -1,5 +1,4 @@
 use chrono::Utc;
-use std::sync::{Arc, Mutex};
 
 use ntp_timeturner::config::Config;
 use ntp_timeturner::sync_logic::{LtcFrame, LtcState};
