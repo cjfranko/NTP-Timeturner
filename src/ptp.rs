@@ -80,7 +80,7 @@ async fn run_ptp_session(
         TimePropertiesDS::new_arbitrary_time(false, false, TimeSource::InternalOscillator);
 
     // 2. Create PtpInstance
-    let mut ptp_instance = PtpInstance::<BasicFilter>::new(instance_config, time_properties_ds);
+    let ptp_instance = PtpInstance::<BasicFilter>::new(instance_config, time_properties_ds);
 
     // 3. Create PortConfig
     let port_config = PortConfig {
@@ -164,19 +164,30 @@ async fn run_ptp_session(
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_millis(100)) => {
                 // Handle periodic timer events one at a time to avoid multiple mutable borrows
-                actions.extend(running_port.handle_sync_timer());
-                actions.extend(running_port.handle_announce_timer(&mut NoForwardedTLVs));
-                actions.extend(running_port.handle_delay_request_timer());
+                let sync_actions: Vec<_> = running_port.handle_sync_timer().collect();
+                actions.extend(sync_actions);
+                
+                let announce_actions: Vec<_> = running_port.handle_announce_timer(&mut NoForwardedTLVs).collect();
+                actions.extend(announce_actions);
+                
+                let delay_actions: Vec<_> = running_port.handle_delay_request_timer().collect();
+                actions.extend(delay_actions);
             }
             Ok((len, _source_address)) = event_socket.recv_from(&mut event_buf) => {
                 let receive_time = Time::from_nanos(std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_nanos() as u64);
-                actions.extend(running_port.handle_event_receive(&event_buf[..len], receive_time));
+                // Copy the data to avoid borrowing conflicts
+                let data = event_buf[..len].to_vec();
+                let event_actions: Vec<_> = running_port.handle_event_receive(&data, receive_time).collect();
+                actions.extend(event_actions);
             }
             Ok((len, _source_address)) = general_socket.recv_from(&mut general_buf) => {
-                actions.extend(running_port.handle_general_receive(&general_buf[..len]));
+                // Copy the data to avoid borrowing conflicts
+                let data = general_buf[..len].to_vec();
+                let general_actions: Vec<_> = running_port.handle_general_receive(&data).collect();
+                actions.extend(general_actions);
             }
         }
 
