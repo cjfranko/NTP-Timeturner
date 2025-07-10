@@ -11,7 +11,7 @@ use statime::{
     time::{Duration as PtpDuration, Interval},
     OverlayClock, PtpInstance, SharedClock,
 };
-use statime_linux::{clock::SystemClock, net::udp::LinuxUdpHandles};
+use statime_linux::{clock::LinuxClock, socket::udp::LinuxUdpHandles};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
@@ -94,7 +94,7 @@ async fn run_ptp_session(
     };
 
     // 4. Create Clock and Filter
-    let clock = SharedClock::new(OverlayClock::new(SystemClock::new()));
+    let clock = SharedClock::new(OverlayClock::new(LinuxClock::new()));
     let filter_config = 0.1; // Filter coefficient
 
     // 5. Create network handles
