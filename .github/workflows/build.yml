@@ -27,27 +27,25 @@ jobs:
 
 
 
-      - name: Install cross-compilation dependencies                                                                                                                            
-        run: |                                                                                                                                                                  
-          sudo dpkg --add-architecture arm64                                                                                                                                    
-          # Configure sources for ARM64 packages - all ARM64 packages come from ports.ubuntu.com                                                                                
-          sudo tee /etc/apt/sources.list.d/arm64.list > /dev/null <<EOF                                                                                                         
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse                                                                       
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse                                                               
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse                                                             
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse                                                              
-          EOF                                                                                                                                                                   
-          # Modify existing sources to exclude arm64 architecture                                                                                                               
-          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list                                                                                                        
-          sudo apt-get update -y                                                                                                                                                
-          # Install build tools and cross-compilation libraries for Raspberry Pi 5                                                                                              
+      - name: Install cross-compilation dependencies
+        run: |
+          sudo dpkg --add-architecture arm64
+          # Configure sources for ARM64 packages - all ARM64 packages come from ports.ubuntu.com
+          sudo tee /etc/apt/sources.list.d/arm64.list > /dev/null <<'EOF'
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+EOF
+          # Modify existing sources to exclude arm64 architecture
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
+          sudo apt-get update -y
+          # Install build tools and cross-compilation libraries for Raspberry Pi 5
           sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 pkg-config cmake
           # Ensure pkg-config can find ARM64 libraries
           sudo apt-get install -y libpkgconf3:arm64
       - name: Install Rust dependencies
         run: cargo fetch --target ${{ env.RUST_TARGET }}
-      - name: Install additional dependencies
-        run: sudo apt-get install -y libudev-dev
       - name: Build release binary
         run: cargo build --release --target ${{ env.RUST_TARGET }}
         env:
