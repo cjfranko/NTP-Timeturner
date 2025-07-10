@@ -129,7 +129,8 @@ async fn run_ptp_session(
     let mut general_buf = [0u8; 1500];
 
     loop {
-        for action in actions {
+        // Process any pending actions first
+        for action in actions.drain(..) {
             match action {
                 PortAction::SendEvent { data, .. } => {
                     // Send to PTP multicast address for events
@@ -159,11 +160,10 @@ async fn run_ptp_session(
             return Ok(());
         }
 
-        actions = Vec::new();
-
+        // Handle events and collect new actions
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_millis(100)) => {
-                // Handle periodic timer events
+                // Handle periodic timer events one at a time to avoid multiple mutable borrows
                 actions.extend(running_port.handle_sync_timer());
                 actions.extend(running_port.handle_announce_timer(&mut NoForwardedTLVs));
                 actions.extend(running_port.handle_delay_request_timer());
