@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::sync_logic::LtcState;
-use rand::thread_rng;
+use rand::{rngs::StdRng, SeedableRng};
 use statime::{
     config::{
         AcceptAnyMaster, ClockIdentity, DelayMechanism, InstanceConfig, PortConfig,
@@ -117,8 +117,9 @@ async fn run_ptp_session(
     let event_socket = create_socket(&interface, 319)?;
     let general_socket = create_socket(&interface, 320)?;
 
-    // 6. Add port and run BMCA
-    let mut port = ptp_instance.add_port(port_config, filter_config, clock, thread_rng());
+    // 6. Add port and run BMCA (use StdRng which is Send)
+    let rng = StdRng::from_entropy();
+    let mut port = ptp_instance.add_port(port_config, filter_config, clock, rng);
     ptp_instance.bmca(&mut [&mut port]);
     let (mut running_port, initial_actions) = port.end_bmca();
 

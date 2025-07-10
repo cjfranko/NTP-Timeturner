@@ -67,13 +67,15 @@ async fn main() {
         });
     }
 
-    // 5️⃣ Spawn PTP client task
+    // 5️⃣ Spawn PTP client thread (blocking, not async)
     {
         let ptp_state = ltc_state.clone();
         let config_clone = config_arc.clone();
-        tokio::spawn(async move {
-            println!("🚀 PTP task launched");
-            start_ptp_client(ptp_state, config_clone).await;
+        thread::spawn(move || {
+            println!("🚀 PTP thread launched");
+            // Create a new tokio runtime for this thread
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(start_ptp_client(ptp_state, config_clone));
         });
     }
 
