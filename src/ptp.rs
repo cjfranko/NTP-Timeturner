@@ -172,7 +172,7 @@ async fn run_ptp_session(
                 let receive_time = Time::from_nanos(std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
-                    .as_nanos() as i64);
+                    .as_nanos() as u64);
                 actions.extend(running_port.handle_event_receive(&event_buf[..len], receive_time));
             }
             Ok((len, _source_address)) = general_socket.recv_from(&mut general_buf) => {
