@@ -39,7 +39,9 @@ jobs:
           sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list                                                                                                        
           sudo apt-get update -y                                                                                                                                                
           # Install build tools and cross-compilation libraries for Raspberry Pi 5                                                                                              
-          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 cmake
+          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 pkg-config cmake
+          # Ensure pkg-config can find ARM64 libraries
+          sudo apt-get install -y libpkgconf3:arm64
 
       - name: Build release binary
         run: cargo build --release --target ${{ env.RUST_TARGET }}
@@ -51,6 +53,8 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_LIBDIR: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_SYSROOT_DIR: /
+          PKG_CONFIG_ALLOW_SYSTEM_LIBS: 1
+          PKG_CONFIG_ALLOW_SYSTEM_CFLAGS: 1
           # Add library path for the cross-compiler's linker
           RUSTFLAGS: -L/usr/lib/aarch64-linux-gnu
 
