@@ -44,8 +44,10 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 pkg-config cmake
           # Ensure pkg-config can find ARM64 libraries
           sudo apt-get install -y libpkgconf3:arm64
-          sudo apt install libudev-dev
-
+      - name: Install Rust dependencies
+        run: cargo fetch --target ${{ env.RUST_TARGET }}
+      - name: Install additional dependencies
+        run: sudo apt-get install -y libudev-dev
       - name: Build release binary
         run: cargo build --release --target ${{ env.RUST_TARGET }}
         env:
