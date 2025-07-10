@@ -1,12 +1,13 @@
 use crate::config::Config;
 use crate::sync_logic::LtcState;
+use rand::thread_rng;
 use statime::{
     config::{InstanceConfig, PortConfig, TimePropertiesDS},
-    filters::MovingAverageFilter,
-    port::{PortAction, PortState},
-    PtpInstance,
+    filter::moving_average::MovingAverageFilter,
+    port::PortAction,
+    ClockIdentity, PtpInstance,
 };
-use statime_linux::{LinuxClock, LinuxUdpHandles};
+use statime_linux::{clock::LinuxClock, udp::LinuxUdpHandles};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
@@ -59,15 +60,16 @@ async fn run_ptp_session(
     let initial_interface = interface.clone();
 
     // 1. Create configs
-    let instance_config = InstanceConfig::default();
+    // A PTP client doesn't need a stable identity.
+    let clock_identity = ClockIdentity::new([0x00, 0x11, 0x22, 0xFF, 0xFE, 0x33, 0x44, 0x55]);
+    let instance_config = InstanceConfig::new(clock_identity, 128, 128, 0);
     let time_properties_ds = TimePropertiesDS::default();
 
     // 2. Create PtpInstance
     let mut ptp_instance = PtpInstance::new(instance_config, time_properties_ds);
 
     // 3. Create PortConfig
-    let mut port_config = PortConfig::default();
-    port_config.iface = interface.into();
+    let mut port_config = PortConfig::new(interface.into());
     port_config.use_hardware_timestamping = false;
 
     // 4. Create Clock and Filter
@@ -75,8 +77,8 @@ async fn run_ptp_session(
     let filter = MovingAverageFilter::new(20);
 
     // 5. Add port and run BMCA
-    let mut port = ptp_instance.add_port(port_config.clone(), clock, filter)?;
-    ptp_instance.run_bmca(&mut [&mut port]);
+    let mut port = ptp_instance.add_port(port_config.clone(), clock, filter, thread_rng())?;
+    ptp_instance.bmca(&mut [&mut port]);
     let mut running_port = port.end_bmca()?;
 
     // 6. Create network handles
@@ -122,23 +124,19 @@ async fn run_ptp_session(
 
         for action in actions {
             match action {
-                PortAction::Send {
-                    destination,
-                    data,
-                    event,
-                } => {
-                    let handle = if event {
+                PortAction::SendMessage(message) => {
+                    let handle = if message.event {
                         &mut event_handle
                     } else {
                         &mut general_handle
                     };
-                    if let Err(e) = handle.send(data, destination).await {
+                    if let Err(e) = handle.send(message.data, message.destination).await {
                         log::error!("Error sending PTP packet: {}", e);
                     }
                 }
-                PortAction::Reset => {
+                PortAction::ToBmca => {
                     log::warn!("PTP port is resetting");
-                    ptp_instance.run_bmca(&mut [&mut running_port.start_bmca()]);
+                    ptp_instance.bmca(&mut [&mut running_port.start_bmca()]);
                     running_port = running_port.start_bmca().end_bmca()?;
                 }
                 PortAction::UpdateMaster(_) => {
@@ -151,8 +149,8 @@ async fn run_ptp_session(
         if last_state_update.elapsed() > Duration::from_millis(500) {
             let port_ds = running_port.get_port_ds();
             let mut st = state.lock().unwrap();
-            st.ptp_state = port_ds.port_state.to_string();
-            if port_ds.port_state == PortState::Slave {
+            st.ptp_state = port_ds.port_state_string().to_string();
+            if port_ds.is_slave() {
                 st.ptp_offset = Some(port_ds.offset_from_master.mean as f64);
             } else {
                 st.ptp_offset = None;
