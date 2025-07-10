@@ -61,13 +61,6 @@ jobs:
           PKG_CONFIG_ALLOW_SYSTEM_CFLAGS: 1
           # Add library path for the cross-compiler's linker
           RUSTFLAGS: -L/usr/lib/aarch64-linux-gnu
-      - name: Run tests on native platform
-        run: cargo test --release
-      - name: Run PTP integration tests
-        run: cargo test ptp_integration_test --release
-      - name: Run all library tests
-        run: cargo test --lib --release
-          
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

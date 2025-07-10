@@ -1,0 +1,40 @@
+name: Test Suite
+
+on:
+  push:
+    branches:
+      - main
+      - ptp
+  pull_request:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libudev-dev pkg-config cmake
+
+      - name: Install Rust dependencies
+        run: cargo fetch
+
+      - name: Run all tests
+        run: cargo test --release
+
+      - name: Run PTP integration tests
+        run: cargo test ptp_integration_test --release
+
+      - name: Run library tests
+        run: cargo test --lib --release
