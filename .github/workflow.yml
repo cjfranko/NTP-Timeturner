@@ -1,10 +1,43 @@
+name: Build for Raspberry Pi
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+  # Target for 32-bit Raspberry Pi (Raspberry Pi OS)
+  RUST_TARGET: armv7-unknown-linux-gnueabihf
+
 jobs:
   build:
+    name: Build for armv7
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: pguyot/arm-runner-action@v2
-      with:
-        commands: |
-          cargo build 
-          
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain-stable@stable
+        with:
+          targets: ${{ env.RUST_TARGET }}
+
+      - name: Install cross-compile linker
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gcc-arm-linux-gnueabihf
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ env.RUST_TARGET }}
+        env:
+          # Set linker for the target
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeturner-armv7
+          path: target/${{ env.RUST_TARGET }}/release/timeturner
