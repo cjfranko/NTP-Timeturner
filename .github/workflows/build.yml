@@ -27,6 +27,7 @@ jobs:
 
       - name: Install cross-compilation dependencies
         run: |
+          sudo sed -i 's/deb http:\/\/security.ubuntu.com/deb [arch=amd64] http:\/\/security.ubuntu.com/' /etc/apt/sources.list
           sudo dpkg --add-architecture arm64
           sudo apt-get update -y
           sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64
