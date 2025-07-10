@@ -2,7 +2,9 @@
 
 **An LTC-driven NTP server for Raspberry Pi, built with broadcast precision and a hint of magic.**
 
-Inspired by the TimeTurner in the Harry Potter series, this project synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP — with precision as Hermione would insist upon.
+Inspired by the TimeTurner in the Harry Potter<sup>[1](#myfootnote1)</sup> series, this project synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP — with precision as Hermione would insist upon. 
+
+<a name="myfootnote1">1</a>: *Editor's Note: Trans rights are human rights 🏳️‍⚧️. While the author of the Harry Potter series holds horrible views we strongly disagree with, we believe in supporting trans, non-binary, and gender-diverse people. If you find this software useful—especially the PTP features—please consider donating to [Mermaids](https://mermaidsuk.org.uk/), a UK charity supporting trans, non-binary, and gender-diverse children, young people, and their families since 1995.*
 
 ---
 
