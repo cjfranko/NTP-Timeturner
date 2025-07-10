@@ -11,7 +11,7 @@ use statime::{
     time::{Duration as PtpDuration, Interval},
     OverlayClock, PtpInstance, SharedClock,
 };
-use statime_linux::{net::udp::LinuxUdpHandles, SystemClock};
+use statime_linux::{LinuxUdpHandles, SystemClock};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
