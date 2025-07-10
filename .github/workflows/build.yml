@@ -61,7 +61,7 @@ jobs:
           # Add library path for the cross-compiler's linker
           RUSTFLAGS: -L/usr/lib/aarch64-linux-gnu
       - name: tests
-        run: cargo test --release --target ${{ env.RUST_TARGET }}
+        run: cargo test --release --target ${{ env.RUST_TARGET }} --bin ntp_timeturner
         env:
           # Set linker for the target
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
