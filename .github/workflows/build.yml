@@ -25,17 +25,20 @@ jobs:
         with:
           targets: ${{ env.RUST_TARGET }}
 
-      - name: Install cross-compilation dependencies
-        run: |
-          sudo dpkg --add-architecture arm64
-          # Add arm64-specific sources to avoid 404 errors on security repos
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/arm64.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/arm64.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/arm64.list
-          sudo apt-get update -y
-          # Install build tools and cross-compilation libraries.
-          # cmake is included as it's in setup.sh and might be needed by a dependency.
-          # The :arm64 suffix is required for cross-compilation.
+      - name: Install cross-compilation dependencies                                                                                                                            
+        run: |                                                                                                                                                                  
+          sudo dpkg --add-architecture arm64                                                                                                                                    
+          # Configure sources for ARM64 packages - all ARM64 packages come from ports.ubuntu.com                                                                                
+          sudo tee /etc/apt/sources.list.d/arm64.list > /dev/null <<EOF                                                                                                         
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse                                                                       
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse                                                               
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse                                                             
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse                                                              
+          EOF                                                                                                                                                                   
+          # Modify existing sources to exclude arm64 architecture                                                                                                               
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list                                                                                                        
+          sudo apt-get update -y                                                                                                                                                
+          # Install build tools and cross-compilation libraries for Raspberry Pi 5                                                                                              
           sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 cmake
 
       - name: Build release binary
