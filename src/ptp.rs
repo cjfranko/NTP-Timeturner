@@ -3,15 +3,15 @@ use crate::sync_logic::LtcState;
 use rand::thread_rng;
 use statime::{
     config::{
-        AcceptAnyMaster, ClockIdentity, ClockQuality, DelayMechanism, InstanceConfig, PortConfig,
+        AcceptAnyMaster, ClockIdentity, DelayMechanism, InstanceConfig, PortConfig,
         PtpMinorVersion, TimePropertiesDS, TimeSource,
     },
     filters::BasicFilter,
-    port::{PortAction, SendMessage},
+    port::PortAction,
     time::{Duration as PtpDuration, Interval},
     OverlayClock, PtpInstance, SharedClock,
 };
-use statime_linux::{net_udp::LinuxUdpHandles, SystemClock};
+use statime_linux::{net::udp::LinuxUdpHandles, SystemClock};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::{sleep, Instant};
@@ -82,13 +82,15 @@ async fn run_ptp_session(
     // 3. Create PortConfig
     let port_config = PortConfig {
         acceptable_master_list: AcceptAnyMaster,
-        delay_mechanism: DelayMechanism::E2E(Interval::from_log_2(0)),
+        delay_mechanism: DelayMechanism::E2E {
+            interval: Interval::from_log_2(0),
+        },
         announce_interval: Interval::from_log_2(0),
         announce_receipt_timeout: 2,
         sync_interval: Interval::from_log_2(0),
         master_only: false,
         delay_asymmetry: PtpDuration::default(),
-        minor_ptp_version: PtpMinorVersion::PTP_2_1,
+        minor_ptp_version: PtpMinorVersion::One,
     };
 
     // 4. Create Clock and Filter
@@ -102,11 +104,36 @@ async fn run_ptp_session(
     // 6. Add port and run BMCA
     let mut port = ptp_instance.add_port(port_config, filter_config, clock, thread_rng())?;
     ptp_instance.bmca(&mut [&mut port]);
-    let mut running_port = port.end_bmca()?;
+    let (mut running_port, initial_actions) = port.end_bmca();
 
     let mut last_state_update = Instant::now();
 
+    let mut actions: Vec<_> = initial_actions.collect();
+
     loop {
+        for action in actions {
+            match action {
+                PortAction::SendEvent {
+                    data,
+                    link_local: _,
+                    ..
+                } => {
+                    if let Err(e) = event_handle.send(data, None).await {
+                        log::error!("Error sending PTP event packet: {}", e);
+                    }
+                }
+                PortAction::SendGeneral {
+                    data,
+                    link_local: _,
+                } => {
+                    if let Err(e) = general_handle.send(data, None).await {
+                        log::error!("Error sending PTP general packet: {}", e);
+                    }
+                }
+                _ => {}
+            }
+        }
+
         // Check for config changes that would require a restart
         let (enabled, current_interface) = {
             let cfg = config.lock().unwrap();
@@ -122,7 +149,7 @@ async fn run_ptp_session(
             .map(tokio::time::Instant::from_std)
             .unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(1));
 
-        let mut actions = Vec::new();
+        actions = Vec::new();
 
         tokio::select! {
             _ = tokio::time::sleep_until(timer_instant) => {
@@ -133,29 +160,6 @@ async fn run_ptp_session(
             }
             Ok((message, source_address)) = general_handle.recv() => {
                 actions.extend(running_port.handle_message(&message, source_address));
-            }
-        }
-
-        for action in actions {
-            match action {
-                PortAction::SendMessage(message) => {
-                    let handle = if message.event {
-                        &mut event_handle
-                    } else {
-                        &mut general_handle
-                    };
-                    if let Err(e) = handle.send(message.data, message.destination).await {
-                        log::error!("Error sending PTP packet: {}", e);
-                    }
-                }
-                PortAction::ToBmca => {
-                    log::warn!("PTP port is resetting");
-                    ptp_instance.bmca(&mut [&mut running_port.start_bmca()]);
-                    running_port = running_port.start_bmca().end_bmca()?;
-                }
-                PortAction::UpdateMaster(_) => {
-                    // Handled by the instance, nothing to do here
-                }
             }
         }
 
