@@ -63,6 +63,8 @@ jobs:
           RUSTFLAGS: -L/usr/lib/aarch64-linux-gnu
       - name: Run tests on native platform
         run: cargo test --release --bin ntp_timeturner
+      - name: Run PTP integration tests
+        run: cargo test ptp_integration_test --release --bin ntp_timeturner                                                                                                                                        
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
