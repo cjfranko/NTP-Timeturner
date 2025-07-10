@@ -77,6 +77,17 @@ impl LtcState {
         match frame.status.as_str() {
             "LOCK" => {
                 self.lock_count += 1;
+
+                // Every 5 seconds, recompute whether HH:MM:SS matches local time
+                let now_secs = Utc::now().timestamp();
+                if now_secs - self.last_match_check >= 5 {
+                    self.last_match_status = if frame.matches_system_time() {
+                        "IN SYNC".into()
+                    } else {
+                        "OUT OF SYNC".into()
+                    };
+                    self.last_match_check = now_secs;
+                }
             }
             "FREE" => {
                 self.free_count += 1;
@@ -84,17 +95,6 @@ impl LtcState {
                 self.last_match_status = "UNKNOWN".into();
             }
             _ => {}
-        }
-
-        // Every 5 seconds, recompute whether HH:MM:SS matches local time
-        let now_secs = Utc::now().timestamp();
-        if now_secs - self.last_match_check >= 5 {
-            self.last_match_status = if frame.matches_system_time() {
-                "IN SYNC".into()
-            } else {
-                "OUT OF SYNC".into()
-            };
-            self.last_match_check = now_secs;
         }
 
         self.latest = Some(frame);
