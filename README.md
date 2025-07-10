@@ -5,7 +5,7 @@
 Inspired by the TimeTurner in the Harry Potter<sup>[1](#myfootnote1)</sup> series, this project synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP — with precision as Hermione would insist upon. 
 
 
-###### <a name="myfootnote1">1</a>: *Editor's Note: Trans rights are Your Human Rights 🏳️‍⚧️. While the author of the Harry Potter series holds horrible backwards old-fashioned and abhorant views. we believe in supporting trans, non-binary, and gender-diverse people.I If you find this software useful please consider donating to [Mermaids](https://mermaidsuk.org.uk/), a UK charity supporting trans, non-binary, and gender-diverse children, young people, and their families since 1995.
+###### <a name="myfootnote1">1</a>: *Editor's Note: Trans rights are Your Human Rights 🏳️‍⚧️. While the author of the Harry Potter series holds horrible backwards old-fashioned and abhorant views. we believe in supporting trans, non-binary, and gender-diverse people.If you find this software useful please consider donating to [Mermaids](https://mermaidsuk.org.uk/), a UK charity supporting trans, non-binary, and gender-diverse children, young people, and their families since 1995.
 ---
 
 ## 📦 Hardware Requirements
