@@ -28,7 +28,11 @@ Inspired by the TimeTurner in the Harry Potter series, this project synchronises
 
 ---
 
-## 🚀 Installation
+## 🚀 Installation (to update)
+
+
+For Rust install you can do 
+cargo install --git https://github.com/cjfranko/NTP-Timeturner
 
 Clone and run the installer:
 
