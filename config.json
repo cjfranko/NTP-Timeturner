@@ -1,5 +1,5 @@
 {
-  "hardware_offset_ms": 20,
+  "hardware_offset_ms": 0,
   "ptp_enabled": true,
   "ptp_interface": "eth0"
 }

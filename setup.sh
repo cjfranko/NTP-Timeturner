@@ -7,7 +7,7 @@ echo "  Welcome to the NTP TimeTurner Installer"
 echo "─────────────────────────────────────────────"
 echo ""
 echo "\"It's a very complicated piece of magic...\" – Hermione Granger"
-echo "Preparing the Ministry-grade temporal interface..."
+echo "Preparing the Ministry-grade temporal interface with PTP precision..."
 echo ""
 
 # ---------------------------------------------------------
@@ -17,11 +17,11 @@ echo "Step 1: Updating package lists and upgrading..."
 sudo apt update && sudo apt upgrade -y
 
 # ---------------------------------------------------------
-# Step 2: Install core tools and Python dependencies
+# Step 2: Install core tools and dependencies
 # ---------------------------------------------------------
-echo "Step 2: Installing required tools..."
+echo "Step 2: Installing required tools and PTP dependencies..."
 sudo apt install -y git curl python3 python3-pip build-essential cmake \
-  python3-serial libusb-dev
+  python3-serial libusb-dev linuxptp ethtool
 
 # ---------------------------------------------------------
 # Step 2.5: Install teensy-loader-cli from source
@@ -48,6 +48,13 @@ sudo cp 49-teensy.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 echo "✅ Teensy udev rules installed. Reboot required to take full effect."
+
+# ---------------------------------------------------------
+# Step 2.7: Configure PTP hardware timestamping support
+# ---------------------------------------------------------
+echo "Configuring PTP hardware timestamping support..."
+# Enable hardware timestamping on network interfaces if supported
+sudo ethtool -T eth0 2>/dev/null | grep -q "hardware-transmit" && echo "✅ Hardware timestamping supported on eth0" || echo "⚠️ Hardware timestamping not available on eth0"
 
 # ---------------------------------------------------------
 # Step 3: Install Arduino CLI manually (latest version)
@@ -119,7 +126,13 @@ echo "────────────────────────�
 echo "  Setup Complete — Rebooting in 15 seconds..."
 echo "─────────────────────────────────────────────"
 echo "NOTE: Teensy firmware ready in $HOME, but not auto-flashed."
-echo "Boot splash will remain until desktop loads. "
+echo "Boot splash will remain until desktop loads."
+echo ""
+echo "PTP Integration Features:"
+echo "• IEEE 1588 PTP v2 client for sub-microsecond precision"
+echo "• Hardware timestamping support (if available)"
+echo "• Real-time offset monitoring and jitter measurement"
+echo "• Configurable via config.json (ptp_enabled, ptp_interface)"
 echo ""
 sleep 15
 sudo reboot
