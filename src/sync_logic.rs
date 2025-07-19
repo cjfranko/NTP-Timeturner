@@ -135,7 +135,7 @@ impl LtcState {
         &self.last_match_status
     }
 }
-
+// This module provides the logic for handling LTC (Linear Timecode) frames and maintaining state.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,7 +168,7 @@ mod tests {
         let frame = get_test_frame("LOCK", different_hour, now.minute(), now.second());
         assert!(!frame.matches_system_time());
     }
-    
+
     #[test]
     fn test_ltc_state_update_lock() {
         let mut state = LtcState::new();
