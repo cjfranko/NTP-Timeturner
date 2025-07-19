@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(state.lock_count, 0);
         assert_eq!(state.free_count, 1);
         assert!(state.offset_history.is_empty()); // Offsets should be cleared
-        assert_eq!(state.last_match_status, "UNKNOWN");
+        assert_eq!(state.last_match_status, "OUT OF SYNC");
     }
 
     #[test]
