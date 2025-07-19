@@ -140,8 +140,7 @@ impl LtcState {
 mod tests {
     use super::*;
     use chrono::{Local, Utc};
-    
-    #[test]
+
     fn get_test_frame(status: &str, h: u32, m: u32, s: u32) -> LtcFrame {
         LtcFrame {
             status: status.to_string(),
@@ -161,6 +160,15 @@ mod tests {
         assert!(frame.matches_system_time());
     }
 
+    #[test]
+    fn test_ltc_frame_does_not_match_system_time() {
+        let now = Local::now();
+        // Create a time that is one hour ahead, wrapping around 23:00
+        let different_hour = (now.hour() + 1) % 24;
+        let frame = get_test_frame("LOCK", different_hour, now.minute(), now.second());
+        assert!(!frame.matches_system_time());
+    }
+    
     #[test]
     fn test_ltc_state_update_lock() {
         let mut state = LtcState::new();
