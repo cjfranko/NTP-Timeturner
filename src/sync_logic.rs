@@ -140,7 +140,8 @@ impl LtcState {
 mod tests {
     use super::*;
     use chrono::{Local, Utc};
-
+    
+    #[test]
     fn get_test_frame(status: &str, h: u32, m: u32, s: u32) -> LtcFrame {
         LtcFrame {
             status: status.to_string(),
