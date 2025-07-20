@@ -18,6 +18,7 @@ use crossterm::{
 };
 
 use crate::sync_logic::LtcState;
+use std::collections::VecDeque;
 
 /// Launch the TUI; reads `offset` live from the file-watcher and performs auto-sync if out of sync.
 pub fn start_ui(
@@ -29,8 +30,14 @@ pub fn start_ui(
     execute!(stdout, EnterAlternateScreen, Hide).unwrap();
     terminal::enable_raw_mode().unwrap();
 
-    // Track when delta goes out of threshold
+    // Recent log of messages (last 10)
+    let mut logs: VecDeque<String> = VecDeque::with_capacity(10);
     let mut out_of_sync_since: Option<Instant> = None;
+
+    // Delta display cache: update once per second
+    let mut last_delta_update = Instant::now() - Duration::from_secs(1);
+    let mut cached_delta_ms: i64 = 0;
+    let mut cached_delta_frames: i64 = 0;
 
     loop {
         // 1️⃣ Read hardware offset
@@ -41,20 +48,18 @@ pub fn start_ui(
             let mut st = state.lock().unwrap();
             if let Some(frame) = st.latest.clone() {
                 if frame.status == "LOCK" {
-                    // Jitter measurement
-                    let now = Utc::now();
-                    let measured = (now - frame.timestamp).num_milliseconds() - hw_offset_ms;
+                    let measured = (Utc::now() - frame.timestamp).num_milliseconds() - hw_offset_ms;
                     st.record_offset(measured);
-                    // Timecode Δ measurement
                     let local = Local::now();
                     let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as i64;
                     let base_time = NaiveTime::from_hms_opt(
                         frame.hours,
                         frame.minutes,
                         frame.seconds,
-                    ).unwrap_or(local.time());
-                    let today = local.date_naive();
-                    let offset_dt = today.and_time(base_time) + ChronoDuration::milliseconds(sub_ms);
+                    )
+                    .unwrap_or(local.time());
+                    let offset_dt = local.date_naive().and_time(base_time)
+                        + ChronoDuration::milliseconds(sub_ms);
                     let ltc_dt = Local.from_local_datetime(&offset_dt).single().unwrap_or(local);
                     let delta_ms = local.signed_duration_since(ltc_dt).num_milliseconds();
                     st.record_clock_delta(delta_ms);
@@ -77,32 +82,51 @@ pub fn start_ui(
             )
         };
 
+        // Update cached delta once per second
+        if last_delta_update.elapsed() >= Duration::from_secs(1) {
+            cached_delta_ms = avg_delta;
+            // compute frames from ms
+            if let Ok(st) = state.lock() {
+                if let Some(frame) = &st.latest {
+                    let ms_pf = 1000.0 / frame.frame_rate;
+                    cached_delta_frames = (cached_delta_ms as f64 / ms_pf).round() as i64;
+                }
+            }
+            last_delta_update = Instant::now();
+        }
+
         // Auto-sync: if OUT OF SYNC or Δ >10ms for 5s
-        if status == "OUT OF SYNC" || avg_delta.abs() > 10 {
+        if status == "OUT OF SYNC" || cached_delta_ms.abs() > 10 {
             if let Some(start) = out_of_sync_since {
                 if start.elapsed() >= Duration::from_secs(5) {
-                    // perform sync
-                    if let Ok(st) = state.lock() {
-                        if let Some(frame) = &st.latest {
+                    if let Ok(stlock) = state.lock() {
+                        if let Some(frame) = &stlock.latest {
                             let local_now = Local::now();
-                            let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as i64;
+                            let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
+                                .round() as i64;
                             let base_time = NaiveTime::from_hms_opt(
                                 frame.hours,
                                 frame.minutes,
                                 frame.seconds,
-                            ).unwrap_or(local_now.time());
+                            )
+                            .unwrap_or(local_now.time());
                             let offset_dt = local_now.date_naive().and_time(base_time)
                                 + ChronoDuration::milliseconds(sub_ms);
-                            let ltc_dt = Local.from_local_datetime(&offset_dt).single().unwrap_or(local_now);
-                            let ts = format!("{:02}:{:02}:{:02}.{:03}", ltc_dt.hour(), ltc_dt.minute(), ltc_dt.second(), ltc_dt.timestamp_subsec_millis());
+                            let ltc_dt = Local.from_local_datetime(&offset_dt)
+                                .single()
+                                .unwrap_or(local_now);
+                            let ts = format!("{:02}:{:02}:{:02}.{:03}",
+                                ltc_dt.hour(), ltc_dt.minute(), ltc_dt.second(), ltc_dt.timestamp_subsec_millis());
                             let res = Command::new("sudo").arg("date").arg("-s").arg(&ts).status();
                             let msg = if res.as_ref().map_or(false, |s| s.success()) {
                                 format!("🔄 Auto-synced to LTC: {}", ts)
                             } else {
                                 "❌ Auto-sync failed".into()
                             };
-                            queue!(stdout, MoveTo(2, 14), Print(msg)).unwrap();
-                            stdout.flush().unwrap();
+                            if logs.len() == 10 {
+                                logs.pop_front();
+                            }
+                            logs.push_back(msg);
                         }
                     }
                     out_of_sync_since = None;
@@ -120,7 +144,8 @@ pub fn start_ui(
             MoveTo(0, 0), Clear(ClearType::All),
             MoveTo(2, 1), Print("NTP Timeturner v2 - Rust Port"),
             MoveTo(2, 2), Print(format!("Using Serial Port: {}", serial_port)),
-        ).unwrap();
+        )
+        .unwrap();
 
         // 5️⃣ Draw LTC & System Clock
         if let Ok(st) = state.lock() {
@@ -133,14 +158,16 @@ pub fn start_ui(
                         frame.hours, frame.minutes, frame.seconds, frame.frames
                     )),
                     MoveTo(2, 6), Print(format!("Frame Rate   : {:.2}fps", frame.frame_rate)),
-                ).unwrap();
+                )
+                .unwrap();
             } else {
                 queue!(
                     stdout,
                     MoveTo(2, 4), Print("LTC Status   : (waiting)"),
                     MoveTo(2, 5), Print("LTC Timecode : …"),
                     MoveTo(2, 6), Print("Frame Rate   : …"),
-                ).unwrap();
+                )
+                .unwrap();
             }
             let now_local = Local::now();
             let sys_str = format!("{:02}:{:02}:{:02}.{:03}",
@@ -148,55 +175,70 @@ pub fn start_ui(
             queue!(stdout, MoveTo(2, 7), Print(format!("System Clock : {}", sys_str))).unwrap();
         }
 
-        // 6️⃣ Overlay in new order: Delta, Status, Jitter, Ratio
-        // Timecode Δ below System Clock
-        let dcol = if avg_delta.abs() < 20 {
+        // 6️⃣ Overlay in new order
+        let dcol = if cached_delta_ms.abs() < 20 {
             Color::Green
-        } else if avg_delta.abs() < 100 {
+        } else if cached_delta_ms.abs() < 100 {
             Color::Yellow
         } else {
             Color::Red
         };
         queue!(
             stdout,
-            MoveTo(2, 8), SetForegroundColor(dcol), Print(format!("Timecode Δ   : {:+} ms", avg_delta)), ResetColor,
-        ).unwrap();
+            MoveTo(2, 8), SetForegroundColor(dcol),
+            Print(format!("Timecode Δ   : {:+} ms ({:+} frames)", cached_delta_ms, cached_delta_frames)),
+            ResetColor,
+        )
+        .unwrap();
 
-        // Sync Status
         let scol = if status == "IN SYNC" { Color::Green } else { Color::Red };
         queue!(
             stdout,
             MoveTo(2, 9), SetForegroundColor(scol), Print(format!("Sync Status  : {}", status)), ResetColor,
-        ).unwrap();
+        )
+        .unwrap();
 
-        // Sync Jitter under Status
-        let (jcol, jtxt) = if avg_ms.abs() < 10 {
-            (Color::Green, format!("{:+} ms ({:+} frames)", avg_ms, avg_frames))
+        let jstatus = if avg_ms.abs() < 10 {
+            "GOOD"
         } else if avg_ms.abs() < 40 {
-            (Color::Yellow, format!("{:+} ms ({:+} frames)", avg_ms, avg_frames))
+            "AVERAGE"
         } else {
-            (Color::Red, format!("{:+} ms ({:+} frames)", avg_ms, avg_frames))
+            "BAD"
+        };
+        let jcol = if jstatus == "GOOD" {
+            Color::Green
+        } else if jstatus == "AVERAGE" {
+            Color::Yellow
+        } else {
+            Color::Red
         };
         queue!(
             stdout,
-            MoveTo(2, 10), SetForegroundColor(jcol), Print("Sync Jitter  : "), Print(jtxt), ResetColor,
-        ).unwrap();
+            MoveTo(2, 10), SetForegroundColor(jcol), Print(format!("Sync Jitter  : {}", jstatus)), ResetColor,
+        )
+        .unwrap();
 
-        // Lock Ratio below Jitter
         queue!(
             stdout,
             MoveTo(2, 11), Print(format!("Lock Ratio   : {:.1}% LOCK", ratio)),
-        ).unwrap();
+        )
+        .unwrap();
 
-        // Blank line at 12, Footer at 13
+        // Footer
         queue!(
             stdout,
             MoveTo(2, 13), Print("[S] Set system clock to LTC    [Q] Quit"),
-        ).unwrap();
+        )
+        .unwrap();
+
+        // 7️⃣ Recent logs
+        for (i, log_msg) in logs.iter().enumerate() {
+            queue!(stdout, MoveTo(2, 15 + i as u16), Print(log_msg)).unwrap();
+        }
 
         stdout.flush().unwrap();
 
-        // 7️⃣ Handle quit/manual sync in poll
+        // 8️⃣ Handle manual sync/quit
         if poll(Duration::from_millis(0)).unwrap() {
             if let Event::Key(evt) = read().unwrap() {
                 if let KeyCode::Char(c) = evt.code {
@@ -206,27 +248,32 @@ pub fn start_ui(
                         process::exit(0);
                     }
                     if c.eq_ignore_ascii_case(&'s') {
-                        // manual sync logic duplicated...
-                        if let Ok(st) = state.lock() {
-                            if let Some(frame) = &st.latest {
+                        if let Ok(stlock) = state.lock() {
+                            if let Some(frame) = &stlock.latest {
                                 let local_now = Local::now();
-                                let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as i64;
+                                let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
+                                    .round() as i64;
                                 let base_time = NaiveTime::from_hms_opt(
                                     frame.hours,
                                     frame.minutes,
                                     frame.seconds,
-                                ).unwrap_or(local_now.time());
-                                let offset_dt = local_now.date_naive().and_time(base_time) + ChronoDuration::milliseconds(sub_ms);
-                                let ltc_dt = Local.from_local_datetime(&offset_dt).single().unwrap_or(local_now);
-                                let ts = format!("{:02}:{:02}:{:02}.{:03}", ltc_dt.hour(), ltc_dt.minute(), ltc_dt.second(), ltc_dt.timestamp_subsec_millis());
+                                )
+                                .unwrap_or(local_now.time());
+                                let offset_dt = local_now.date_naive().and_time(base_time)
+                                    + ChronoDuration::milliseconds(sub_ms);
+                                let ltc_dt = Local.from_local_datetime(&offset_dt)
+                                    .single()
+                                    .unwrap_or(local_now);
+                                let ts = format!("{:02}:{:02}:{:02}.{:03}",
+                                    ltc_dt.hour(), ltc_dt.minute(), ltc_dt.second(), ltc_dt.timestamp_subsec_millis());
                                 let res = Command::new("sudo").arg("date").arg("-s").arg(&ts).status();
                                 let msg = if res.as_ref().map_or(false, |s| s.success()) {
                                     format!("✔ Synced exactly to LTC: {}", ts)
                                 } else {
                                     "❌ date cmd failed".into()
                                 };
-                                queue!(stdout, MoveTo(2, 14), Print(msg)).unwrap();
-                                stdout.flush().unwrap();
+                                if logs.len() == 10 { logs.pop_front(); }
+                                logs.push_back(msg);
                             }
                         }
                     }
