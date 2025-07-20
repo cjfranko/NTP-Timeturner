@@ -14,7 +14,7 @@ Inspired by the TimeTurner in the Harry Potter series, this project synchronises
 - Audio Adapter Board for Teensy 4.0 (Rev D) - https://thepihut.com/products/audio-adapter-board-for-teensy-4-0
 - Ethernet connection (recommended for <1ms sync NTP broadcast)
 - Optional: LTC generator for input testing - Windows/Mac App - https://timecodesync.com/generator/
-
+- NetTime: Software to sync Windows OS to custom NTP servers - https://www.timesynctool.com/
 ---
 
 ## 🛠️ Software Features
