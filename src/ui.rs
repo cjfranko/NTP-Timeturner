@@ -7,6 +7,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use std::collections::VecDeque;
 
 use chrono::{Local, Timelike, Utc, NaiveTime, Duration as ChronoDuration, TimeZone};
 use crossterm::{
@@ -18,22 +19,23 @@ use crossterm::{
 };
 
 use get_if_addrs::get_if_addrs;
-use std::collections::VecDeque;
 use crate::sync_logic::LtcState;
 
-/// Check if the ntpd service is active
+/// Check if the Chrony service is active
 fn ntp_service_active() -> bool {
-    if let Ok(output) = Command::new("systemctl").args(&["is-active", "ntpd"]).output() {
-        output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "active"
+    if let Ok(output) = Command::new("systemctl").args(&["is-active", "chrony"]).output() {
+        output.status.success()
+            && String::from_utf8_lossy(&output.stdout).trim() == "active"
     } else {
         false
     }
 }
 
-/// Toggle the ntpd service (start if `start` is true, stop otherwise)
+/// Toggle the Chrony service (start if `start` is true, stop otherwise)
+#[allow(dead_code)]
 fn ntp_service_toggle(start: bool) {
     let action = if start { "start" } else { "stop" };
-    let _ = Command::new("systemctl").args(&[action, "ntpd"]).status();
+    let _ = Command::new("systemctl").args(&[action, "chrony"]).status();
 }
 
 /// Launch the full-featured TUI; reads `offset` live and performs auto-sync if out of sync.
@@ -61,7 +63,7 @@ pub fn start_ui(
         // 1️⃣ Read hardware offset from watcher
         let hw_offset_ms = *offset.lock().unwrap();
 
-        // 2️⃣ Check NTP service status and gather network interfaces
+        // 2️⃣ Check Chrony status and gather network interfaces
         let ntp_active = ntp_service_active();
         let interfaces: Vec<String> = get_if_addrs()
             .unwrap_or_default()
@@ -81,14 +83,11 @@ pub fn start_ui(
                     let measured = raw - hw_offset_ms;
                     st.record_offset(measured);
 
-                    // Timecode delta: how far system clock differs from LTC
+                    // Timecode delta
                     let local = Local::now();
                     let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as i64;
-                    let base_time = NaiveTime::from_hms_opt(
-                        frame.hours,
-                        frame.minutes,
-                        frame.seconds,
-                    ).unwrap_or(local.time());
+                    let base_time = NaiveTime::from_hms_opt(frame.hours, frame.minutes, frame.seconds)
+                        .unwrap_or(local.time());
                     let offset_dt = local.date_naive().and_time(base_time)
                         + ChronoDuration::milliseconds(sub_ms);
                     let ltc_dt = Local.from_local_datetime(&offset_dt)
@@ -104,7 +103,7 @@ pub fn start_ui(
         }
 
         // 4️⃣ Compute averages & statuses
-        let (avg_ms, avg_frames, status_str, lock_ratio, avg_delta) = {
+let (avg_ms, _avg_frames, status_str, lock_ratio, avg_delta) = {
             let st = state.lock().unwrap();
             (
                 st.average_jitter(),
@@ -128,8 +127,8 @@ pub fn start_ui(
             last_delta_update = Instant::now();
         }
 
-        // 6️⃣ Auto-sync if "OUT OF SYNC" or Δ >10ms for 5s
-        if status_str == "OUT OF SYNC" || cached_delta_ms.abs() > 10 {
+        // 6️⃣ Auto-sync if "OUT OF SYNC" or Δ >5ms for 5s
+        if status_str == "OUT OF SYNC" || cached_delta_ms.abs() > 5 {
             if let Some(start) = out_of_sync_since {
                 if start.elapsed() >= Duration::from_secs(5) {
                     // Perform sync to LTC
@@ -183,9 +182,9 @@ pub fn start_ui(
         queue!(
             stdout,
             MoveTo(0, 0), Clear(ClearType::All),
-            MoveTo(2, 1), Print("NTP Timeturner v2 - Rust Port"),
-            MoveTo(2, 2), Print(format!("Using Serial Port: {}", serial_port)),
-            MoveTo(2, 3), Print(format!("NTP Server       : {}", if ntp_active { "ACTIVE" } else { "INACTIVE" })),
+            MoveTo(2, 1), Print("Have Blue - NTP Timeturner - FrameWorks Testing"),
+            MoveTo(2, 2), Print(format!("Serial Port      : {}", serial_port)),
+            MoveTo(2, 3), Print(format!("Chrony Service   : {}", if ntp_active { "RUNNING" } else { "MISSING" })),
             MoveTo(2, 4), Print(format!("Interfaces       : {}", interfaces.join(", "))),
         )
         .unwrap();
@@ -220,7 +219,6 @@ pub fn start_ui(
         }
 
         // 9️⃣ Overlay metrics in new order
-        // Timecode Δ line
         let dcol = if cached_delta_ms.abs() < 20 {
             Color::Green
         } else if cached_delta_ms.abs() < 100 {
@@ -236,7 +234,6 @@ pub fn start_ui(
         )
         .unwrap();
 
-        // Sync Status line
         let scol = if status_str == "IN SYNC" {
             Color::Green
         } else {
@@ -250,7 +247,6 @@ pub fn start_ui(
         )
         .unwrap();
 
-        // Sync Jitter line
         let jstatus = if avg_ms.abs() < 10 {
             "GOOD"
         } else if avg_ms.abs() < 40 {
@@ -273,15 +269,16 @@ pub fn start_ui(
         )
         .unwrap();
 
-        // Lock Ratio line
-        queue!(stdout,
+        queue!(
+            stdout,
             MoveTo(2, 14), Print(format!("Lock Ratio       : {:.1}% LOCK", lock_ratio)),
         )
         .unwrap();
 
         // 10️⃣ Footer and logs
-        queue!(stdout,
-            MoveTo(2, 16), Print("[S] Set system clock to LTC    [Q] Quit"),
+        queue!(
+            stdout,
+            MoveTo(2, 16), Print("[S] Sync system clock to LTC    [Q] Quit"),
         )
         .unwrap();
         for (i, log_msg) in logs.iter().enumerate() {
@@ -345,6 +342,6 @@ pub fn start_ui(
             }
         }
 
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(25));
     }
 }
