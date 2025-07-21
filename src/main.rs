@@ -7,7 +7,7 @@ mod serial_input;
 mod ui;
 
 use crate::api::start_api_server;
-use crate::config::{watch_config, Config};
+use crate::config::watch_config;
 use crate::sync_logic::LtcState;
 use crate::serial_input::start_serial_thread;
 use crate::ui::start_ui;

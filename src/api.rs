@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::sync::{Arc, Mutex};
 
-use crate::config::{self, Config, TimeturnerOffset};
+use crate::config::{self, Config};
 use crate::sync_logic::LtcState;
 use crate::ui;
 
@@ -158,6 +158,7 @@ pub async fn start_api_server(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::TimeturnerOffset;
     use crate::sync_logic::LtcFrame;
     use actix_web::{test, App};
     use chrono::Utc;
