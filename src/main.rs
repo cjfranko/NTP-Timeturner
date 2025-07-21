@@ -79,3 +79,49 @@ fn main() {
         // no-op
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+
+    /// RAII guard to ensure config file is cleaned up after test.
+    struct ConfigGuard;
+
+    impl Drop for ConfigGuard {
+        fn drop(&mut self) {
+            let _ = fs::remove_file("config.json");
+        }
+    }
+
+    #[test]
+    fn test_ensure_config() {
+        let _guard = ConfigGuard; // Cleanup when _guard goes out of scope.
+
+        // --- Test 1: File creation ---
+        // Pre-condition: config.json does not exist.
+        let _ = fs::remove_file("config.json");
+
+        ensure_config();
+
+        // Post-condition: config.json exists and has default content.
+        let p = Path::new("config.json");
+        assert!(p.exists(), "config.json should have been created");
+        let contents = fs::read_to_string(p).expect("Failed to read created config.json");
+        assert_eq!(contents, DEFAULT_CONFIG, "config.json content should match default");
+
+        // --- Test 2: File is not overwritten ---
+        // Pre-condition: config.json exists with different content.
+        let custom_content = "{\"hardware_offset_ms\": 999}";
+        fs::write("config.json", custom_content)
+            .expect("Failed to write custom config.json for test");
+
+        ensure_config();
+
+        // Post-condition: config.json still has the custom content.
+        let contents_after = fs::read_to_string("config.json")
+            .expect("Failed to read config.json after second ensure_config call");
+        assert_eq!(contents_after, custom_content, "config.json should not be overwritten");
+    }
+}
