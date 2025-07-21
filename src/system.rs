@@ -37,7 +37,7 @@ pub fn ntp_service_toggle(start: bool) {
     }
 }
 
-pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
+pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Local> {
     let today_local = Local::now().date_naive();
     let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
     let timecode = NaiveTime::from_hms_milli_opt(frame.hours, frame.minutes, frame.seconds, ms)
@@ -57,7 +57,12 @@ pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
         + ChronoDuration::seconds(offset.seconds);
     // Frame offset needs to be converted to milliseconds
     let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
-    dt_local = dt_local + ChronoDuration::milliseconds(frame_offset_ms);
+    dt_local + ChronoDuration::milliseconds(frame_offset_ms)
+}
+
+pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
+    let dt_local = calculate_target_time(frame, config);
+
     #[cfg(target_os = "linux")]
     let (ts, success) = {
         let ts = dt_local.format("%H:%M:%S.%3f").to_string();
@@ -96,5 +101,82 @@ pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
         Ok(ts)
     } else {
         Err(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::TimeturnerOffset;
+    use chrono::{Datelike, Timelike, Utc};
+
+    // Helper to create a test frame
+    fn get_test_frame(h: u32, m: u32, s: u32, f: u32) -> LtcFrame {
+        LtcFrame {
+            status: "LOCK".to_string(),
+            hours: h,
+            minutes: m,
+            seconds: s,
+            frames: f,
+            frame_rate: 25.0,
+            timestamp: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn test_ntp_service_active_on_non_linux() {
+        // On non-Linux platforms, this should always be false.
+        #[cfg(not(target_os = "linux"))]
+        assert!(!ntp_service_active());
+    }
+
+    #[test]
+    fn test_calculate_target_time_no_offset() {
+        let frame = get_test_frame(10, 20, 30, 0);
+        let config = Config::default();
+        let target_time = calculate_target_time(&frame, &config);
+
+        assert_eq!(target_time.hour(), 10);
+        assert_eq!(target_time.minute(), 20);
+        assert_eq!(target_time.second(), 30);
+    }
+
+    #[test]
+    fn test_calculate_target_time_with_positive_offset() {
+        let frame = get_test_frame(10, 20, 30, 0);
+        let mut config = Config::default();
+        config.timeturner_offset = TimeturnerOffset {
+            hours: 1,
+            minutes: 5,
+            seconds: 10,
+            frames: 12, // 12 frames at 25fps is 480ms
+        };
+
+        let target_time = calculate_target_time(&frame, &config);
+
+        assert_eq!(target_time.hour(), 11);
+        assert_eq!(target_time.minute(), 25);
+        assert_eq!(target_time.second(), 40);
+        // 480ms
+        assert_eq!(target_time.nanosecond(), 480_000_000);
+    }
+
+    #[test]
+    fn test_calculate_target_time_with_negative_offset() {
+        let frame = get_test_frame(10, 20, 30, 12); // 12 frames = 480ms
+        let mut config = Config::default();
+        config.timeturner_offset = TimeturnerOffset {
+            hours: -1,
+            minutes: -5,
+            seconds: -10,
+            frames: -12, // -480ms
+        };
+
+        let target_time = calculate_target_time(&frame, &config);
+
+        assert_eq!(target_time.hour(), 9);
+        assert_eq!(target_time.minute(), 15);
+        assert_eq!(target_time.second(), 20);
+        assert_eq!(target_time.nanosecond(), 0);
     }
 }
