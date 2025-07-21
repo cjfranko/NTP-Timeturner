@@ -251,8 +251,6 @@ mod tests {
         let frame_out_of_sync = get_test_frame("LOCK", different_hour, now.minute(), now.second());
         state.update(frame_out_of_sync);
 
-        // This will also fail due to the bug.
-        // Expected: "OUT OF SYNC", Actual: "UNKNOWN".
         assert_eq!(state.timecode_match(), "OUT OF SYNC");
     }
 
