@@ -1,4 +1,5 @@
-﻿use chrono::{DateTime, Local, Timelike, Utc};
+﻿use crate::config::Config;
+use chrono::{DateTime, Local, Timelike, Utc};
 use regex::Captures;
 use std::collections::VecDeque;
 
