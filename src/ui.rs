@@ -104,7 +104,7 @@ pub fn start_ui(
         }
 
         // 4️⃣ Compute averages & statuses
-        let (avg_ms, avg_frames, status_str, lock_ratio, avg_delta) = {
+        let (avg_ms, _avg_frames, status_str, lock_ratio, avg_delta) = {
             let st = state.lock().unwrap();
             (
                 st.average_jitter(),
