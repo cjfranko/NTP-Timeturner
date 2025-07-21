@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTP TimeTurner</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>NTP TimeTurner</h1>
+        <div class="grid">
+            <!-- LTC Status -->
+            <div class="card">
+                <h2>LTC Status</h2>
+                <p id="ltc-status">--</p>
+                <p id="ltc-timecode">--:--:--:--</p>
+                <p id="frame-rate">-- fps</p>
+                <p>Lock Ratio: <span id="lock-ratio">--</span>%</p>
+            </div>
+
+            <!-- System Clock & Sync -->
+            <div class="card">
+                <h2>System Clock</h2>
+                <p id="system-clock">--:--:--.---</p>
+                <p>NTP Service: <span id="ntp-active">--</span></p>
+                <p>Sync Status: <span id="sync-status">--</span></p>
+            </div>
+
+            <!-- Delta & Jitter -->
+            <div class="card">
+                <h2>Clock Offset</h2>
+                <p>Delta: <span id="delta-ms">--</span> ms (<span id="delta-frames">--</span> frames)</p>
+                <p>Jitter: <span id="jitter-status">--</span></p>
+            </div>
+
+            <!-- Network Interfaces -->
+            <div class="card">
+                <h2>Network</h2>
+                <ul id="interfaces">
+                    <li>--</li>
+                </ul>
+            </div>
+
+            <!-- Controls -->
+            <div class="card full-width">
+                <h2>Controls</h2>
+                <div class="control-group">
+                    <label for="hw-offset">Hardware Offset (ms):</label>
+                    <input type="number" id="hw-offset" name="hw-offset">
+                    <button id="save-offset">Save</button>
+                </div>
+                <div class="control-group">
+                    <button id="manual-sync">Manual Sync</button>
+                    <span id="sync-message"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

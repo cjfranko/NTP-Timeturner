@@ -1,4 +1,5 @@
 
+use actix_files as fs;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use chrono::{Local, Timelike};
 use get_if_addrs::get_if_addrs;
@@ -158,6 +159,8 @@ pub async fn start_api_server(
             .service(manual_sync)
             .service(get_config)
             .service(update_config)
+            // Serve frontend static files
+            .service(fs::Files::new("/", "static/").index_file("index.html"))
     })
     .bind("0.0.0.0:8080")?
     .run()
