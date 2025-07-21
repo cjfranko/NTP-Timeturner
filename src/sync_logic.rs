@@ -229,3 +229,4 @@ mod tests {
         assert_eq!(*state.offset_history.front().unwrap(), 5); // 0-4 are pushed out
         assert_eq!(*state.offset_history.back().unwrap(), 24);
     }
+}
