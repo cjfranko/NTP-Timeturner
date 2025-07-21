@@ -18,7 +18,7 @@ use std::{
     sync::{Arc, Mutex, mpsc},
     thread,
 };
-use tokio::task;
+use tokio::task::{self, LocalSet};
 
 /// Embed the default config.json at compile time.
 const DEFAULT_CONFIG: &str = include_str!("../config.json");
@@ -77,22 +77,32 @@ async fn main() {
         });
     }
 
-    // 6️⃣ Spawn the API server thread
-    {
-        let api_state = ltc_state.clone();
-        let offset_clone = hw_offset.clone();
-        task::spawn_local(async move {
-            if let Err(e) = start_api_server(api_state, offset_clone).await {
-                eprintln!("API server error: {}", e);
+    // 6️⃣ Set up a LocalSet for the API server.
+    let local = LocalSet::new();
+    local
+        .run_until(async move {
+            // 7️⃣ Spawn the API server thread
+            {
+                let api_state = ltc_state.clone();
+                let offset_clone = hw_offset.clone();
+                task::spawn_local(async move {
+                    if let Err(e) = start_api_server(api_state, offset_clone).await {
+                        eprintln!("API server error: {}", e);
+                    }
+                });
             }
-        });
-    }
 
-    // 7️⃣ Keep main thread alive by processing LTC frames
-    println!("📡 Main thread entering loop...");
-    for _frame in rx {
-        // no-op
-    }
+            // 8️⃣ Keep main thread alive by consuming LTC frames in a blocking task
+            println!("📡 Main thread entering loop...");
+            let _ = task::spawn_blocking(move || {
+                // This will block the thread, but it's a blocking-safe thread.
+                for _frame in rx {
+                    // no-op
+                }
+            })
+            .await;
+        })
+        .await;
 }
 
 #[cfg(test)]
