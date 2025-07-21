@@ -5,6 +5,7 @@
 Inspired by the TimeTurner in the Harry Potter series, this project synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP — with precision as Hermione would insist upon.
 
 Created by Chris Frankland-Wright and John Rogers
+
 ---
 
 ## 📦 Hardware Requirements
