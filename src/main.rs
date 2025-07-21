@@ -18,6 +18,7 @@ use std::{
     sync::{Arc, Mutex, mpsc},
     thread,
 };
+use tokio::task;
 
 /// Embed the default config.json at compile time.
 const DEFAULT_CONFIG: &str = include_str!("../config.json");
@@ -80,7 +81,7 @@ async fn main() {
     {
         let api_state = ltc_state.clone();
         let offset_clone = hw_offset.clone();
-        tokio::spawn(async move {
+        task::spawn_local(async move {
             if let Err(e) = start_api_server(api_state, offset_clone).await {
                 eprintln!("API server error: {}", e);
             }
