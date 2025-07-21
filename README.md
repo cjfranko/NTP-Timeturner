@@ -14,7 +14,7 @@ Inspired by the TimeTurner in the Harry Potter series, this project synchronises
 - Audio Adapter Board for Teensy 4.0 (Rev D) - https://thepihut.com/products/audio-adapter-board-for-teensy-4-0
 - Ethernet connection (recommended for <1ms sync NTP broadcast)
 - Optional: LTC generator for input testing - Windows/Mac App - https://timecodesync.com/generator/
-
+- NetTime: Software to sync Windows OS to custom NTP servers - https://www.timesynctool.com/
 ---
 
 ## 🛠️ Software Features
@@ -36,3 +36,27 @@ Clone and run the installer:
 wget https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/setup.sh
 chmod +x setup.sh
 ./setup.sh
+```
+
+---
+## 🕰️ Chrony NTP 
+```bash
+chronyc sources | Checks Source
+chronyc tracking | NTP Tracking
+sudo nano /etc/chrony/chrony.conf | Default Chrony Conf File
+
+Add to top:
+# Serve the system clock as a reference at stratum 10
+server 127.127.1.0
+allow 127.0.0.0/8
+local stratum 10
+
+Add to bottom:
+# Allow LAN clients
+allow 0.0.0.0/0
+
+# comment out:
+pool 2.debian.pool.ntp.org iburst
+sourcedir /run/chrony-dhcp
+```
+
