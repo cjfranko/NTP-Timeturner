@@ -1,6 +1,4 @@
-﻿// src/ui.rs
-
-use std::{
+﻿use std::{
     io::{stdout, Write},
     process::{self, Command},
     sync::{Arc, Mutex},
@@ -11,7 +9,7 @@ use std::collections::VecDeque;
 
 use chrono::{
     DateTime, Local, Timelike, Utc,
-    Duration as ChronoDuration,
+    NaiveTime, TimeZone,
 };
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -80,11 +78,19 @@ pub fn start_ui(
                     let measured = raw - hw_offset_ms;
                     st.record_offset(measured);
 
-                    // Δ via UTC lane
-                    let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as i64;
-                    let ltc_arrival = frame.timestamp
-                        + ChronoDuration::milliseconds(hw_offset_ms + sub_ms);
-                    let delta_ms = (Utc::now() - ltc_arrival).num_milliseconds();
+                    // Δ = system clock - LTC timecode (use LOCAL time)
+                    let today_local = Local::now().date_naive();
+                    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
+                        .round() as u32;
+                    let tc_naive = NaiveTime::from_hms_milli_opt(
+                        frame.hours, frame.minutes, frame.seconds, ms,
+                    ).expect("Invalid LTC timecode");
+                    let naive_dt_local = today_local.and_time(tc_naive);
+                    let dt_local = Local
+                        .from_local_datetime(&naive_dt_local)
+                        .single()
+                        .expect("Invalid local time");
+                    let delta_ms = (Local::now() - dt_local).num_milliseconds();
                     st.record_clock_delta(delta_ms);
                 } else {
                     st.clear_offsets();
@@ -94,7 +100,7 @@ pub fn start_ui(
         }
 
         // 4️⃣ averages & status override
-        let (avg_ms, _avg_frames, _, lock_ratio, avg_delta) = {
+        let (avg_jitter_ms, _avg_frames, _, lock_ratio, avg_delta) = {
             let st = state.lock().unwrap();
             (
                 st.average_jitter(),
@@ -105,36 +111,54 @@ pub fn start_ui(
             )
         };
 
-        let sync_status = if avg_delta.abs() <= 5 { "IN SYNC" } else { "OUT OF SYNC" };
-
-        // 5️⃣ cache Δ once/sec
+        // 5️⃣ cache Δ once/sec & Δ in frames
         if last_delta_update.elapsed() >= Duration::from_secs(1) {
             cached_delta_ms = avg_delta;
-            cached_delta_frames = avg_ms; // or recalc from frame if you like
+            if let Some(frame) = &state.lock().unwrap().latest {
+                let frame_ms = 1000.0 / frame.frame_rate;
+                cached_delta_frames = ((avg_delta as f64 / frame_ms).round()) as i64;
+            } else {
+                cached_delta_frames = 0;
+            }
             last_delta_update = Instant::now();
         }
 
-        // 6️⃣ auto‑sync
-        if sync_status == "OUT OF SYNC" {
+        // 6️⃣ sync status wording
+        let sync_status = if cached_delta_ms.abs() <= 5 {
+            "IN SYNC"
+        } else if cached_delta_ms > 5 {
+            "CLOCK AHEAD"
+        } else {
+            "CLOCK BEHIND"
+        };
+
+        // 7️⃣ auto‑sync (same as manual but delayed)
+        if sync_status != "IN SYNC" {
             if let Some(start) = out_of_sync_since {
                 if start.elapsed() >= Duration::from_secs(5) {
-                    // sync exactly to LTC arrival
                     if let Some(frame) = &state.lock().unwrap().latest {
-                        let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as i64;
-                        let ltc_arrival = frame.timestamp
-                            + ChronoDuration::milliseconds(hw_offset_ms + sub_ms);
-                        // format from UTC instant into local time
-                        let ts_local: DateTime<Local> =
-                            DateTime::from(ltc_arrival);
-                        let ts = format!(
-                            "{:02}:{:02}:{:02}.{:03}",
-                            ts_local.hour(),
-                            ts_local.minute(),
-                            ts_local.second(),
-                            ts_local.timestamp_subsec_millis()
-                        );
-                        let res = Command::new("sudo").arg("date").arg("-s").arg(&ts).status();
-                        let entry = if res.as_ref().map_or(false, |s| s.success()) {
+                        let today_local = Local::now().date_naive();
+                        let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
+                            .round() as u32;
+                        let timecode = NaiveTime::from_hms_milli_opt(
+                            frame.hours, frame.minutes, frame.seconds, ms,
+                        ).expect("Invalid LTC timecode");
+                        let naive_dt = today_local.and_time(timecode);
+                        let dt_local = Local
+                            .from_local_datetime(&naive_dt)
+                            .single()
+                            .expect("Ambiguous or invalid local time");
+                        let ts = dt_local.format("%H:%M:%S.%3f").to_string();
+
+                        let success = Command::new("sudo")
+                            .arg("date")
+                            .arg("-s")
+                            .arg(&ts)
+                            .status()
+                            .map(|s| s.success())
+                            .unwrap_or(false);
+
+                        let entry = if success {
                             format!("🔄 Auto‑synced to LTC: {}", ts)
                         } else {
                             "❌ Auto‑sync failed".into()
@@ -151,50 +175,59 @@ pub fn start_ui(
             out_of_sync_since = None;
         }
 
-        // 7️⃣ header
-        queue!(
-            stdout,
-            MoveTo(0, 0), Clear(ClearType::All),
-            MoveTo(2, 1), Print("Have Blue - NTP Timeturner"),
-            MoveTo(2, 2), Print(format!("Serial Port      : {}", serial_port)),
-            MoveTo(2, 3), Print(format!("Chrony Service   : {}", if ntp_active { "RUNNING" } else { "MISSING" })),
-            MoveTo(2, 4), Print(format!("Interfaces       : {}", interfaces.join(", "))),
-        ).unwrap();
+        // 8️⃣ header & LTC metrics display
+        {
+            let st = state.lock().unwrap();
+            let opt = st.latest.as_ref();
+            let status_str = opt.map(|f| f.status.as_str()).unwrap_or("(waiting)");
+            let tc_str = match opt {
+                Some(f) => format!("LTC Timecode     : {:02}:{:02}:{:02}:{:02}",
+                                   f.hours, f.minutes, f.seconds, f.frames),
+                None => "LTC Timecode     : …".to_string(),
+            };
+            let fr_str = match opt {
+                Some(f) => format!("Frame Rate       : {:.2}fps", f.frame_rate),
+                None => "Frame Rate       : …".to_string(),
+            };
 
-        // 8️⃣ LTC & system clock
-        if let Some(frame) = &state.lock().unwrap().latest {
             queue!(
                 stdout,
-                MoveTo(2, 6), Print(format!("LTC Status       : {}", frame.status)),
-                MoveTo(2, 7), Print(format!("LTC Timecode     : {:02}:{:02}:{:02}:{:02}",
-                    frame.hours, frame.minutes, frame.seconds, frame.frames
-                )),
-                MoveTo(2, 8), Print(format!("Frame Rate       : {:.2}fps", frame.frame_rate)),
-            ).unwrap();
-        } else {
-            queue!(
-                stdout,
-                MoveTo(2, 6), Print("LTC Status       : (waiting)"),
-                MoveTo(2, 7), Print("LTC Timecode     : …"),
-                MoveTo(2, 8), Print("Frame Rate       : …"),
+                MoveTo(0, 0), Clear(ClearType::All),
+                MoveTo(2, 1), Print("Have Blue - NTP Timeturner"),
+                MoveTo(2, 2), Print(format!("Serial Port      : {}", serial_port)),
+                MoveTo(2, 3), Print(format!("Chrony Service   : {}",
+                    if ntp_active { "RUNNING" } else { "MISSING" })),
+                MoveTo(2, 4), Print(format!("Interfaces       : {}",
+                    interfaces.join(", "))),
+                MoveTo(2, 6), Print(format!("LTC Status       : {}", status_str)),
+                MoveTo(2, 7), Print(tc_str),
+                MoveTo(2, 8), Print(fr_str),
             ).unwrap();
         }
 
-        // show Pi’s own clock
+        // system clock
         let now_local: DateTime<Local> = DateTime::from(Utc::now());
         let sys_ts = format!(
             "{:02}:{:02}:{:02}.{:03}",
             now_local.hour(),
             now_local.minute(),
             now_local.second(),
-            now_local.timestamp_subsec_millis()
+            now_local.timestamp_subsec_millis(),
         );
-        queue!(stdout, MoveTo(2, 9), Print(format!("System Clock     : {}", sys_ts))).unwrap();
+        queue!(stdout,
+            MoveTo(2, 9), Print(format!(
+                "System Clock     : {}",
+                sys_ts
+            ))).unwrap();
 
-        // 9️⃣ metrics
-        let dcol = if cached_delta_ms.abs() < 20 { Color::Green }
-            else if cached_delta_ms.abs() < 100 { Color::Yellow }
-            else { Color::Red };
+        // Δ display
+        let dcol = if cached_delta_ms.abs() < 20 {
+            Color::Green
+        } else if cached_delta_ms.abs() < 100 {
+            Color::Yellow
+        } else {
+            Color::Red
+        };
         queue!(
             stdout,
             MoveTo(2, 11), SetForegroundColor(dcol),
@@ -202,7 +235,12 @@ pub fn start_ui(
             ResetColor,
         ).unwrap();
 
-        let scol = if sync_status == "IN SYNC" { Color::Green } else { Color::Red };
+        // sync status
+        let scol = if sync_status == "IN SYNC" {
+            Color::Green
+        } else {
+            Color::Red
+        };
         queue!(
             stdout,
             MoveTo(2, 12), SetForegroundColor(scol),
@@ -210,25 +248,35 @@ pub fn start_ui(
             ResetColor,
         ).unwrap();
 
-        let jstatus = if avg_ms.abs() < 10 { "GOOD" }
-            else if avg_ms.abs() < 40 { "AVERAGE" }
-            else { "BAD" };
-        let jcol = if jstatus == "GOOD" { Color::Green }
-            else if jstatus == "AVERAGE" { Color::Yellow }
-            else { Color::Red };
+        // jitter & lock ratio
+        let jstatus = if avg_jitter_ms.abs() < 10 {
+            "GOOD"
+        } else if avg_jitter_ms.abs() < 40 {
+            "AVERAGE"
+        } else {
+            "BAD"
+        };
+        let jcol = if jstatus == "GOOD" {
+            Color::Green
+        } else if jstatus == "AVERAGE" {
+            Color::Yellow
+        } else {
+            Color::Red
+        };
         queue!(
             stdout,
             MoveTo(2, 13), SetForegroundColor(jcol),
             Print(format!("Sync Jitter      : {}", jstatus)),
             ResetColor,
         ).unwrap();
-
         queue!(
             stdout,
-            MoveTo(2, 14), Print(format!("Lock Ratio       : {:.1}% LOCK", lock_ratio)),
+            MoveTo(2, 14), Print(format!("Lock Ratio       : {:.1}% LOCK",
+                lock_ratio
+            )),
         ).unwrap();
 
-        // 10️⃣ footer + logs
+        // footer + logs
         queue!(
             stdout,
             MoveTo(2, 16), Print("[S] Sync sys clock to LTC    [Q] Quit"),
@@ -239,7 +287,7 @@ pub fn start_ui(
 
         stdout.flush().unwrap();
 
-        // 11️⃣ manual sync & quit
+        // manual sync & quit
         if poll(Duration::from_millis(50)).unwrap() {
             if let Event::Key(evt) = read().unwrap() {
                 match evt.code {
@@ -250,25 +298,33 @@ pub fn start_ui(
                     }
                     KeyCode::Char(c) if c.eq_ignore_ascii_case(&'s') => {
                         if let Some(frame) = &state.lock().unwrap().latest {
-                            // compute the exact timestamp again
-                            let sub_ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as i64;
-                            let ltc_arrival = frame.timestamp
-                                + ChronoDuration::milliseconds(hw_offset_ms + sub_ms);
-                            let ts_local: DateTime<Local> = DateTime::from(ltc_arrival);
-                            let ts = format!(
-                                "{:02}:{:02}:{:02}.{:03}",
-                                ts_local.hour(),
-                                ts_local.minute(),
-                                ts_local.second(),
-                                ts_local.timestamp_subsec_millis()
-                            );
-                            let res = Command::new("sudo").arg("date").arg("-s").arg(&ts).status();
-                            let entry = if res.as_ref().map_or(false, |s| s.success()) {
+                            let today_local = Local::now().date_naive();
+                            let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
+                                .round() as u32;
+                            let timecode = NaiveTime::from_hms_milli_opt(
+                                frame.hours, frame.minutes, frame.seconds, ms,
+                            ).expect("Invalid LTC timecode");
+                            let naive_dt = today_local.and_time(timecode);
+                            let dt_local = Local
+                                .from_local_datetime(&naive_dt)
+                                .single()
+                                .expect("Ambiguous or invalid local time");
+                            let ts = dt_local.format("%H:%M:%S.%3f").to_string();
+
+                            let success = Command::new("sudo")
+                                .arg("date")
+                                .arg("-s")
+                                .arg(&ts)
+                                .status()
+                                .map(|s| s.success())
+                                .unwrap_or(false);
+
+                            let entry = if success {
                                 format!("✔ Synced exactly to LTC: {}", ts)
                             } else {
                                 "❌ date cmd failed".into()
                             };
-                            if logs.len() == 10 { logs.pop_front() }
+                            if logs.len() == 10 { logs.pop_front(); }
                             logs.push_back(entry);
                         }
                     }
