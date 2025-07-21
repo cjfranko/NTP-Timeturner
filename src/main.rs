@@ -2,23 +2,38 @@
 
 mod api;
 mod config;
-mod sync_logic;
 mod serial_input;
+mod sync_logic;
+mod system;
 mod ui;
 
 use crate::api::start_api_server;
 use crate::config::watch_config;
-use crate::sync_logic::LtcState;
 use crate::serial_input::start_serial_thread;
+use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
+use clap::Parser;
 
 use std::{
     fs,
     path::Path,
-    sync::{Arc, Mutex, mpsc},
+    sync::{mpsc, Arc, Mutex},
     thread,
 };
 use tokio::task::{self, LocalSet};
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum Command {
+    /// Run as a background daemon providing a web UI.
+    Daemon,
+}
 
 /// Default config content, embedded in the binary.
 const DEFAULT_CONFIG: &str = r#"
@@ -46,27 +61,25 @@ fn ensure_config() {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    // 🔄 Ensure there's always a config.json present
+    let args = Args::parse();
+
+    // 🔄 Ensure there's always a config.yml present
     ensure_config();
 
     // 1️⃣ Start watching config.yml for changes
     let config = watch_config("config.yml");
-    println!("🔧 Watching config.yml...");
 
     // 2️⃣ Channel for raw LTC frames
     let (tx, rx) = mpsc::channel();
-    println!("✅ Channel created");
 
     // 3️⃣ Shared state for UI and serial reader
     let ltc_state = Arc::new(Mutex::new(LtcState::new()));
-    println!("✅ State initialised");
 
-    // 4️⃣ Spawn the serial reader thread (no offset here)
+    // 4️⃣ Spawn the serial reader thread
     {
-        let tx_clone    = tx.clone();
+        let tx_clone = tx.clone();
         let state_clone = ltc_state.clone();
         thread::spawn(move || {
-            println!("🚀 Serial thread launched");
             start_serial_thread(
                 "/dev/ttyACM0",
                 115200,
@@ -77,18 +90,25 @@ async fn main() {
         });
     }
 
-    // 5️⃣ Spawn the UI renderer thread, passing the live config Arc
-    {
-        let ui_state     = ltc_state.clone();
+    // 5️⃣ Spawn UI or setup daemon logging
+    if args.command.is_none() {
+        println!("🔧 Watching config.yml...");
+        println!("🚀 Serial thread launched");
+        println!("🖥️ UI thread launched");
+        let ui_state = ltc_state.clone();
         let config_clone = config.clone();
-        let port         = "/dev/ttyACM0".to_string();
+        let port = "/dev/ttyACM0".to_string();
         thread::spawn(move || {
-            println!("🖥️ UI thread launched");
             start_ui(ui_state, port, config_clone);
         });
+    } else {
+        println!("🚀 Starting TimeTurner daemon...");
+        systemd_journal_logger::init().unwrap();
+        log::set_max_level(log::LevelFilter::Info);
+        log::info!("TimeTurner daemon started. API server is running.");
     }
 
-    // 6️⃣ Set up a LocalSet for the API server.
+    // 6️⃣ Set up a LocalSet for the API server and main loop
     let local = LocalSet::new();
     local
         .run_until(async move {
@@ -103,15 +123,20 @@ async fn main() {
                 });
             }
 
-            // 8️⃣ Keep main thread alive by consuming LTC frames in a blocking task
-            println!("📡 Main thread entering loop...");
-            let _ = task::spawn_blocking(move || {
-                // This will block the thread, but it's a blocking-safe thread.
-                for _frame in rx {
-                    // no-op
-                }
-            })
-            .await;
+            // 8️⃣ Keep main thread alive
+            if args.command.is_some() {
+                // In daemon mode, wait forever.
+                std::future::pending::<()>().await;
+            } else {
+                // In TUI mode, block on the channel.
+                println!("📡 Main thread entering loop...");
+                let _ = task::spawn_blocking(move || {
+                    for _frame in rx {
+                        // no-op
+                    }
+                })
+                .await;
+            }
         })
         .await;
 }
