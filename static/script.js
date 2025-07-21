@@ -14,7 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const hwOffsetInput = document.getElementById('hw-offset');
-    const saveOffsetButton = document.getElementById('save-offset');
+    const offsetInputs = {
+        h: document.getElementById('offset-h'),
+        m: document.getElementById('offset-m'),
+        s: document.getElementById('offset-s'),
+        f: document.getElementById('offset-f'),
+    };
+    const saveConfigButton = document.getElementById('save-config');
     const manualSyncButton = document.getElementById('manual-sync');
     const syncMessage = document.getElementById('sync-message');
 
@@ -67,24 +73,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/config');
             if (!response.ok) throw new Error('Failed to fetch config');
             const data = await response.json();
-            hwOffsetInput.value = data.hardware_offset_ms;
+            hwOffsetInput.value = data.hardwareOffsetMs;
+            offsetInputs.h.value = data.timeturnerOffset.hours;
+            offsetInputs.m.value = data.timeturnerOffset.minutes;
+            offsetInputs.s.value = data.timeturnerOffset.seconds;
+            offsetInputs.f.value = data.timeturnerOffset.frames;
         } catch (error) {
             console.error('Error fetching config:', error);
         }
     }
 
     async function saveConfig() {
-        const offset = parseInt(hwOffsetInput.value, 10);
-        if (isNaN(offset)) {
-            alert('Invalid hardware offset value.');
-            return;
-        }
+        const config = {
+            hardwareOffsetMs: parseInt(hwOffsetInput.value, 10) || 0,
+            timeturnerOffset: {
+                hours:   parseInt(offsetInputs.h.value, 10) || 0,
+                minutes: parseInt(offsetInputs.m.value, 10) || 0,
+                seconds: parseInt(offsetInputs.s.value, 10) || 0,
+                frames:  parseInt(offsetInputs.f.value, 10) || 0,
+            }
+        };
 
         try {
             const response = await fetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hardware_offset_ms: offset }),
+                body: JSON.stringify(config),
             });
             if (!response.ok) throw new Error('Failed to save config');
             alert('Configuration saved.');
@@ -111,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { syncMessage.textContent = ''; }, 5000);
     }
 
-    saveOffsetButton.addEventListener('click', saveConfig);
+    saveConfigButton.addEventListener('click', saveConfig);
     manualSyncButton.addEventListener('click', triggerManualSync);
 
     // Initial data load

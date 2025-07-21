@@ -85,6 +85,7 @@ button:hover {
 /* Status-specific colors */
 #sync-status.in-sync, #jitter-status.good { font-weight: bold; color: #28a745; }
 #sync-status.clock-ahead, #sync-status.clock-behind, #jitter-status.average { font-weight: bold; color: #ffc107; }
+#sync-status.timeturning { font-weight: bold; color: #17a2b8; }
 #jitter-status.bad { font-weight: bold; color: #dc3545; }
 #ntp-active.active { font-weight: bold; color: #28a745; }
 #ntp-active.inactive { font-weight: bold; color: #dc3545; }

@@ -9,7 +9,7 @@ use std::collections::VecDeque;
 
 use chrono::{
     DateTime, Local, Timelike, Utc,
-    NaiveTime, TimeZone,
+    NaiveTime, TimeZone, Duration as ChronoDuration,
 };
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -19,6 +19,7 @@ use crossterm::{
     terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
+use crate::config::Config;
 use get_if_addrs::get_if_addrs;
 use crate::sync_logic::{LtcFrame, LtcState};
 
@@ -39,8 +40,10 @@ fn ntp_service_toggle(start: bool) {
     let _ = Command::new("systemctl").args(&[action, "chrony"]).status();
 }
 
-pub fn get_sync_status(delta_ms: i64) -> &'static str {
-    if delta_ms.abs() <= 8 {
+pub fn get_sync_status(delta_ms: i64, config: &Config) -> &'static str {
+    if config.timeturner_offset.is_active() {
+        "TIMETURNING"
+    } else if delta_ms.abs() <= 8 {
         "IN SYNC"
     } else if delta_ms > 10 {
         "CLOCK AHEAD"
@@ -59,18 +62,27 @@ pub fn get_jitter_status(jitter_ms: i64) -> &'static str {
     }
 }
 
-pub fn trigger_sync(frame: &LtcFrame) -> Result<String, ()> {
+pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
     let today_local = Local::now().date_naive();
-    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
-        .round() as u32;
-    let timecode = NaiveTime::from_hms_milli_opt(
-        frame.hours, frame.minutes, frame.seconds, ms,
-    ).expect("Invalid LTC timecode");
+    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
+    let timecode = NaiveTime::from_hms_milli_opt(frame.hours, frame.minutes, frame.seconds, ms)
+        .expect("Invalid LTC timecode");
+
     let naive_dt = today_local.and_time(timecode);
-    let dt_local = Local
+    let mut dt_local = Local
         .from_local_datetime(&naive_dt)
         .single()
         .expect("Ambiguous or invalid local time");
+
+    // Apply timeturner offset
+    let offset = &config.timeturner_offset;
+    dt_local = dt_local
+        + ChronoDuration::hours(offset.hours)
+        + ChronoDuration::minutes(offset.minutes)
+        + ChronoDuration::seconds(offset.seconds);
+    // Frame offset needs to be converted to milliseconds
+    let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
+    dt_local = dt_local + ChronoDuration::milliseconds(frame_offset_ms);
     #[cfg(target_os = "linux")]
     let (ts, success) = {
         let ts = dt_local.format("%H:%M:%S.%3f").to_string();
@@ -115,7 +127,7 @@ pub fn trigger_sync(frame: &LtcFrame) -> Result<String, ()> {
 pub fn start_ui(
     state: Arc<Mutex<LtcState>>,
     serial_port: String,
-    offset: Arc<Mutex<i64>>,
+    config: Arc<Mutex<Config>>,
 ) {
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen, Hide).unwrap();
@@ -128,8 +140,9 @@ pub fn start_ui(
     let mut cached_delta_frames: i64 = 0;
 
     loop {
-        // 1️⃣ hardware offset
-        let hw_offset_ms = *offset.lock().unwrap();
+        // 1️⃣ config
+        let cfg = config.lock().unwrap().clone();
+        let hw_offset_ms = cfg.hardware_offset_ms;
 
         // 2️⃣ Chrony + interfaces
         let ntp_active = ntp_service_active();
@@ -151,18 +164,27 @@ pub fn start_ui(
                     let measured = raw - hw_offset_ms;
                     st.record_offset(measured);
 
-                    // Δ = system clock - LTC timecode (use LOCAL time)
+                    // Δ = system clock - LTC timecode (use LOCAL time, with offset)
                     let today_local = Local::now().date_naive();
-                    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
-                        .round() as u32;
+                    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
                     let tc_naive = NaiveTime::from_hms_milli_opt(
                         frame.hours, frame.minutes, frame.seconds, ms,
                     ).expect("Invalid LTC timecode");
                     let naive_dt_local = today_local.and_time(tc_naive);
-                    let dt_local = Local
+                    let mut dt_local = Local
                         .from_local_datetime(&naive_dt_local)
                         .single()
                         .expect("Invalid local time");
+
+                    // Apply timeturner offset before calculating delta
+                    let offset = &cfg.timeturner_offset;
+                    dt_local = dt_local
+                        + ChronoDuration::hours(offset.hours)
+                        + ChronoDuration::minutes(offset.minutes)
+                        + ChronoDuration::seconds(offset.seconds);
+                    let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
+                    dt_local = dt_local + ChronoDuration::milliseconds(frame_offset_ms);
+
                     let delta_ms = (Local::now() - dt_local).num_milliseconds();
                     st.record_clock_delta(delta_ms);
                 } else {
@@ -197,14 +219,14 @@ pub fn start_ui(
         }
 
         // 6️⃣ sync status wording
-        let sync_status = get_sync_status(cached_delta_ms);
+        let sync_status = get_sync_status(cached_delta_ms, &cfg);
 
         // 7️⃣ auto‑sync (same as manual but delayed)
-        if sync_status != "IN SYNC" {
+        if sync_status != "IN SYNC" && sync_status != "TIMETURNING" {
             if let Some(start) = out_of_sync_since {
                 if start.elapsed() >= Duration::from_secs(5) {
                     if let Some(frame) = &state.lock().unwrap().latest {
-                        let entry = match trigger_sync(frame) {
+                        let entry = match trigger_sync(frame, &cfg) {
                             Ok(ts) => format!("🔄 Auto‑synced to LTC: {}", ts),
                             Err(_) => "❌ Auto‑sync failed".into(),
                         };
@@ -283,6 +305,8 @@ pub fn start_ui(
         // sync status
         let scol = if sync_status == "IN SYNC" {
             Color::Green
+        } else if sync_status == "TIMETURNING" {
+            Color::Cyan
         } else {
             Color::Red
         };
@@ -337,7 +361,7 @@ pub fn start_ui(
                     }
                     KeyCode::Char(c) if c.eq_ignore_ascii_case(&'s') => {
                         if let Some(frame) = &state.lock().unwrap().latest {
-                            let entry = match trigger_sync(frame) {
+                            let entry = match trigger_sync(frame, &cfg) {
                                 Ok(ts) => format!("✔ Synced exactly to LTC: {}", ts),
                                 Err(_) => "❌ date cmd failed".into(),
                             };
@@ -358,16 +382,24 @@ pub fn start_ui(
 mod tests {
     use super::*;
 
+    use crate::config::TimeturnerOffset;
+
     #[test]
     fn test_get_sync_status() {
-        assert_eq!(get_sync_status(0), "IN SYNC");
-        assert_eq!(get_sync_status(8), "IN SYNC");
-        assert_eq!(get_sync_status(-8), "IN SYNC");
-        assert_eq!(get_sync_status(9), "CLOCK BEHIND");
-        assert_eq!(get_sync_status(10), "CLOCK BEHIND");
-        assert_eq!(get_sync_status(11), "CLOCK AHEAD");
-        assert_eq!(get_sync_status(-9), "CLOCK BEHIND");
-        assert_eq!(get_sync_status(-100), "CLOCK BEHIND");
+        let mut config = Config::default();
+        assert_eq!(get_sync_status(0, &config), "IN SYNC");
+        assert_eq!(get_sync_status(8, &config), "IN SYNC");
+        assert_eq!(get_sync_status(-8, &config), "IN SYNC");
+        assert_eq!(get_sync_status(9, &config), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(10, &config), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(11, &config), "CLOCK AHEAD");
+        assert_eq!(get_sync_status(-9, &config), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(-100, &config), "CLOCK BEHIND");
+
+        // Test TIMETURNING status
+        config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0 };
+        assert_eq!(get_sync_status(0, &config), "TIMETURNING");
+        assert_eq!(get_sync_status(100, &config), "TIMETURNING");
     }
 
     #[test]
