@@ -13,6 +13,7 @@ use crate::serial_input::start_serial_thread;
 use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
 use clap::Parser;
+use daemonize::Daemonize;
 use env_logger;
 
 use std::{
@@ -63,6 +64,28 @@ fn ensure_config() {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let args = Args::parse();
+
+    if let Some(Command::Daemon) = &args.command {
+        println!("🚀 Starting daemon...");
+
+        // Create files for stdout and stderr in the current directory
+        let stdout = fs::File::create("daemon.out").expect("Could not create daemon.out");
+        let stderr = fs::File::create("daemon.err").expect("Could not create daemon.err");
+
+        let daemonize = Daemonize::new()
+            .pid_file("ntp_timeturner.pid") // Create a PID file
+            .working_directory(".") // Keep the same working directory
+            .stdout(stdout)
+            .stderr(stderr);
+
+        match daemonize.start() {
+            Ok(_) => { /* Process is now daemonized */ }
+            Err(e) => {
+                eprintln!("Error daemonizing: {}", e);
+                return; // Exit if daemonization fails
+            }
+        }
+    }
 
     // 🔄 Ensure there's always a config.yml present
     ensure_config();
