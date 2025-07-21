@@ -105,7 +105,9 @@ async fn main() {
         println!("🚀 Starting TimeTurner daemon...");
         #[cfg(target_os = "linux")]
         {
-            systemd_journal_logger::init().unwrap();
+            // Manually initialize the logger as a workaround for build issues.
+            let logger = systemd_journal_logger::JournalLog::new().unwrap();
+            log::set_boxed_logger(Box::new(logger)).unwrap();
             log::set_max_level(log::LevelFilter::Info);
             log::info!("TimeTurner daemon started. API server is running.");
         }
