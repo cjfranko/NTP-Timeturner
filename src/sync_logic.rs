@@ -136,13 +136,22 @@ impl LtcState {
         }
     }
 
-    /// Average timecode Δ over stored history, in ms.
+    /// Median timecode Δ over stored history, in ms.
     pub fn average_clock_delta(&self) -> i64 {
         if self.clock_delta_history.is_empty() {
-            0
+            return 0;
+        }
+
+        let mut sorted_deltas: Vec<i64> = self.clock_delta_history.iter().cloned().collect();
+        sorted_deltas.sort_unstable();
+
+        let mid = sorted_deltas.len() / 2;
+        if sorted_deltas.len() % 2 == 0 {
+            // Even number of elements, average the two middle ones
+            (sorted_deltas[mid - 1] + sorted_deltas[mid]) / 2
         } else {
-            let sum: i64 = self.clock_delta_history.iter().sum();
-            sum / self.clock_delta_history.len() as i64
+            // Odd number of elements, return the middle one
+            sorted_deltas[mid]
         }
     }
 
@@ -289,6 +298,38 @@ mod tests {
             state.timecode_match(),
             "IN SYNC",
             "Status should update after throttle period"
+        );
+    }
+
+    #[test]
+    fn test_average_clock_delta_is_median() {
+        let mut state = LtcState::new();
+
+        // Establish a stable set of values
+        for _ in 0..19 {
+            state.record_clock_delta(2);
+        }
+        state.record_clock_delta(100); // Add an outlier
+
+        // With 19 `2`s and one `100`, the median should still be `2`.
+        // The simple average would be (19*2 + 100) / 20 = 138 / 20 = 6.
+        assert_eq!(
+            state.average_clock_delta(),
+            2,
+            "Median should ignore the outlier"
+        );
+
+        // Test with an even number of elements
+        state.clear_clock_deltas();
+        state.record_clock_delta(1);
+        state.record_clock_delta(2);
+        state.record_clock_delta(3);
+        state.record_clock_delta(100);
+        // sorted: [1, 2, 3, 100]. mid two are 2, 3. average is (2+3)/2 = 2.
+        assert_eq!(
+            state.average_clock_delta(),
+            2,
+            "Median of even numbers should be correct"
         );
     }
 }
