@@ -238,9 +238,6 @@ mod tests {
         let now = Local::now();
         let frame_in_sync = get_test_frame("LOCK", now.hour(), now.minute(), now.second());
         state.update(frame_in_sync);
-
-        // This will fail due to the bug (`latest` is None during check).
-        // Expected: "IN SYNC", Actual: "UNKNOWN". This exposes the bug.
         assert_eq!(state.timecode_match(), "IN SYNC");
     }
 
