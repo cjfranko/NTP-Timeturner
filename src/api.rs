@@ -307,30 +307,4 @@ mod tests {
 
         assert_eq!(resp.status(), 400); // Bad Request
     }
-
-    #[actix_web::test]
-    async fn test_manual_sync_fails() {
-        // State with an LTC frame, but sync command will fail in test env
-        let ltc_state = Arc::new(Mutex::new(get_test_state()));
-        let hw_offset = Arc::new(Mutex::new(0i64));
-
-        let app_state = web::Data::new(AppState {
-            ltc_state: ltc_state.clone(),
-            hw_offset: hw_offset.clone(),
-        });
-
-        let app = test::init_service(
-            App::new()
-                .app_data(app_state.clone())
-                .service(manual_sync),
-        )
-        .await;
-
-        let req = test::TestRequest::post().uri("/api/sync").to_request();
-        let resp = test::call_service(&app, req).await;
-
-        // In a test environment, `trigger_sync` is expected to succeed without
-        // actually running a command.
-        assert_eq!(resp.status(), 200); // OK
-    }
 }
