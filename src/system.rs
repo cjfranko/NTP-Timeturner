@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::sync_logic::LtcFrame;
-use chrono::{Duration as ChronoDuration, Local, NaiveTime, TimeZone};
+use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveTime, TimeZone};
 use std::process::Command;
 
 /// Check if Chrony is active
@@ -108,7 +108,7 @@ pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
 mod tests {
     use super::*;
     use crate::config::TimeturnerOffset;
-    use chrono::{Datelike, Timelike, Utc};
+    use chrono::{Timelike, Utc};
 
     // Helper to create a test frame
     fn get_test_frame(h: u32, m: u32, s: u32, f: u32) -> LtcFrame {
