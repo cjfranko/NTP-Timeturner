@@ -20,8 +20,10 @@ use std::{
 };
 use tokio::task::{self, LocalSet};
 
-/// Embed the default config.json at compile time.
-const DEFAULT_CONFIG: &str = include_str!("../config.json");
+/// Default config content, embedded in the binary.
+const DEFAULT_CONFIG: &str = r#"{
+  "hardware_offset_ms": 20
+}"#;
 
 /// If no `config.json` exists alongside the binary, write out the default.
 fn ensure_config() {
