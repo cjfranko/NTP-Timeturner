@@ -1,10 +1,12 @@
 ﻿// src/main.rs
 
+mod api;
 mod config;
 mod sync_logic;
 mod serial_input;
 mod ui;
 
+use crate::api::start_api_server;
 use crate::config::watch_config;
 use crate::sync_logic::LtcState;
 use crate::serial_input::start_serial_thread;
@@ -30,7 +32,8 @@ fn ensure_config() {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // 🔄 Ensure there's always a config.json present
     ensure_config();
 
@@ -73,7 +76,18 @@ fn main() {
         });
     }
 
-    // 6️⃣ Keep main thread alive
+    // 6️⃣ Spawn the API server thread
+    {
+        let api_state = ltc_state.clone();
+        let offset_clone = hw_offset.clone();
+        tokio::spawn(async move {
+            if let Err(e) = start_api_server(api_state, offset_clone).await {
+                eprintln!("API server error: {}", e);
+            }
+        });
+    }
+
+    // 7️⃣ Keep main thread alive by processing LTC frames
     println!("📡 Main thread entering loop...");
     for _frame in rx {
         // no-op

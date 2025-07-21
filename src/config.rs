@@ -4,15 +4,16 @@ use notify::{
     recommended_watcher, Event, EventKind, RecommendedWatcher, RecursiveMode, Result as NotifyResult,
     Watcher,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
+    fs,
     fs::File,
     io::Read,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Config {
     pub hardware_offset_ms: i64,
 }
@@ -29,6 +30,11 @@ impl Config {
         }
         serde_json::from_str(&contents).unwrap_or(Self { hardware_offset_ms: 0 })
     }
+}
+
+pub fn save_config(path: &str, config: &Config) -> std::io::Result<()> {
+    let contents = serde_json::to_string_pretty(config)?;
+    fs::write(path, contents)
 }
 
 pub fn watch_config(path: &str) -> Arc<Mutex<i64>> {

@@ -20,10 +20,10 @@ use crossterm::{
 };
 
 use get_if_addrs::get_if_addrs;
-use crate::sync_logic::LtcState;
+use crate::sync_logic::{LtcFrame, LtcState};
 
 /// Check if Chrony is active
-fn ntp_service_active() -> bool {
+pub fn ntp_service_active() -> bool {
     if let Ok(output) = Command::new("systemctl").args(&["is-active", "chrony"]).output() {
         output.status.success()
             && String::from_utf8_lossy(&output.stdout).trim() == "active"
@@ -39,7 +39,7 @@ fn ntp_service_toggle(start: bool) {
     let _ = Command::new("systemctl").args(&[action, "chrony"]).status();
 }
 
-fn get_sync_status(delta_ms: i64) -> &'static str {
+pub fn get_sync_status(delta_ms: i64) -> &'static str {
     if delta_ms.abs() <= 8 {
         "IN SYNC"
     } else if delta_ms > 10 {
@@ -49,13 +49,42 @@ fn get_sync_status(delta_ms: i64) -> &'static str {
     }
 }
 
-fn get_jitter_status(jitter_ms: i64) -> &'static str {
+pub fn get_jitter_status(jitter_ms: i64) -> &'static str {
     if jitter_ms.abs() < 10 {
         "GOOD"
     } else if jitter_ms.abs() < 40 {
         "AVERAGE"
     } else {
         "BAD"
+    }
+}
+
+pub fn trigger_sync(frame: &LtcFrame) -> Result<String, ()> {
+    let today_local = Local::now().date_naive();
+    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
+        .round() as u32;
+    let timecode = NaiveTime::from_hms_milli_opt(
+        frame.hours, frame.minutes, frame.seconds, ms,
+    ).expect("Invalid LTC timecode");
+    let naive_dt = today_local.and_time(timecode);
+    let dt_local = Local
+        .from_local_datetime(&naive_dt)
+        .single()
+        .expect("Ambiguous or invalid local time");
+    let ts = dt_local.format("%H:%M:%S.%3f").to_string();
+
+    let success = Command::new("sudo")
+        .arg("date")
+        .arg("-s")
+        .arg(&ts)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    if success {
+        Ok(ts)
+    } else {
+        Err(())
     }
 }
 
@@ -151,31 +180,9 @@ pub fn start_ui(
             if let Some(start) = out_of_sync_since {
                 if start.elapsed() >= Duration::from_secs(5) {
                     if let Some(frame) = &state.lock().unwrap().latest {
-                        let today_local = Local::now().date_naive();
-                        let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
-                            .round() as u32;
-                        let timecode = NaiveTime::from_hms_milli_opt(
-                            frame.hours, frame.minutes, frame.seconds, ms,
-                        ).expect("Invalid LTC timecode");
-                        let naive_dt = today_local.and_time(timecode);
-                        let dt_local = Local
-                            .from_local_datetime(&naive_dt)
-                            .single()
-                            .expect("Ambiguous or invalid local time");
-                        let ts = dt_local.format("%H:%M:%S.%3f").to_string();
-
-                        let success = Command::new("sudo")
-                            .arg("date")
-                            .arg("-s")
-                            .arg(&ts)
-                            .status()
-                            .map(|s| s.success())
-                            .unwrap_or(false);
-
-                        let entry = if success {
-                            format!("🔄 Auto‑synced to LTC: {}", ts)
-                        } else {
-                            "❌ Auto‑sync failed".into()
+                        let entry = match trigger_sync(frame) {
+                            Ok(ts) => format!("🔄 Auto‑synced to LTC: {}", ts),
+                            Err(_) => "❌ Auto‑sync failed".into(),
                         };
                         if logs.len() == 10 { logs.pop_front(); }
                         logs.push_back(entry);
@@ -306,31 +313,9 @@ pub fn start_ui(
                     }
                     KeyCode::Char(c) if c.eq_ignore_ascii_case(&'s') => {
                         if let Some(frame) = &state.lock().unwrap().latest {
-                            let today_local = Local::now().date_naive();
-                            let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0)
-                                .round() as u32;
-                            let timecode = NaiveTime::from_hms_milli_opt(
-                                frame.hours, frame.minutes, frame.seconds, ms,
-                            ).expect("Invalid LTC timecode");
-                            let naive_dt = today_local.and_time(timecode);
-                            let dt_local = Local
-                                .from_local_datetime(&naive_dt)
-                                .single()
-                                .expect("Ambiguous or invalid local time");
-                            let ts = dt_local.format("%H:%M:%S.%3f").to_string();
-
-                            let success = Command::new("sudo")
-                                .arg("date")
-                                .arg("-s")
-                                .arg(&ts)
-                                .status()
-                                .map(|s| s.success())
-                                .unwrap_or(false);
-
-                            let entry = if success {
-                                format!("✔ Synced exactly to LTC: {}", ts)
-                            } else {
-                                "❌ date cmd failed".into()
+                            let entry = match trigger_sync(frame) {
+                                Ok(ts) => format!("✔ Synced exactly to LTC: {}", ts),
+                                Err(_) => "❌ date cmd failed".into(),
                             };
                             if logs.len() == 10 { logs.pop_front(); }
                             logs.push_back(entry);
