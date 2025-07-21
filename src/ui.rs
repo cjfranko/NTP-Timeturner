@@ -71,15 +71,39 @@ pub fn trigger_sync(frame: &LtcFrame) -> Result<String, ()> {
         .from_local_datetime(&naive_dt)
         .single()
         .expect("Ambiguous or invalid local time");
-    let ts = dt_local.format("%H:%M:%S.%3f").to_string();
+    #[cfg(target_os = "linux")]
+    let (ts, success) = {
+        let ts = dt_local.format("%H:%M:%S.%3f").to_string();
+        let success = Command::new("sudo")
+            .arg("date")
+            .arg("-s")
+            .arg(&ts)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        (ts, success)
+    };
 
-    let success = Command::new("sudo")
-        .arg("date")
-        .arg("-s")
-        .arg(&ts)
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
+    #[cfg(target_os = "macos")]
+    let (ts, success) = {
+        // macOS `date` command format is `mmddHHMMccyy.SS`
+        let ts = dt_local.format("%m%d%H%M%y.%S").to_string();
+        let success = Command::new("sudo")
+            .arg("date")
+            .arg(&ts)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        (ts, success)
+    };
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    let (ts, success) = {
+        // Unsupported OS, always fail
+        let ts = dt_local.format("%H:%M:%S.%3f").to_string();
+        eprintln!("Unsupported OS for time synchronization");
+        (ts, false)
+    };
 
     if success {
         Ok(ts)
