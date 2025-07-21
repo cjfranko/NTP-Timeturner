@@ -1,4 +1,4 @@
-﻿// src/ui.rs
+// src/ui.rs
 
 use std::{
     io::{stdout, Write},
