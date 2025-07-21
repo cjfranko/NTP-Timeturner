@@ -329,7 +329,8 @@ mod tests {
         let req = test::TestRequest::post().uri("/api/sync").to_request();
         let resp = test::call_service(&app, req).await;
 
-        // Expecting failure because `sudo date` won't work here.
-        assert_eq!(resp.status(), 500); // Internal Server Error
+        // In a test environment, `trigger_sync` is expected to succeed without
+        // actually running a command.
+        assert_eq!(resp.status(), 200); // OK
     }
 }
