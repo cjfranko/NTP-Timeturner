@@ -1,10 +1,12 @@
 ﻿// src/main.rs
 
+mod api;
 mod config;
 mod sync_logic;
 mod serial_input;
 mod ui;
 
+use crate::api::start_api_server;
 use crate::config::watch_config;
 use crate::sync_logic::LtcState;
 use crate::serial_input::start_serial_thread;
@@ -16,9 +18,12 @@ use std::{
     sync::{Arc, Mutex, mpsc},
     thread,
 };
+use tokio::task::{self, LocalSet};
 
-/// Embed the default config.json at compile time.
-const DEFAULT_CONFIG: &str = include_str!("../config.json");
+/// Default config content, embedded in the binary.
+const DEFAULT_CONFIG: &str = r#"{
+  "hardware_offset_ms": 20
+}"#;
 
 /// If no `config.json` exists alongside the binary, write out the default.
 fn ensure_config() {
@@ -30,7 +35,8 @@ fn ensure_config() {
     }
 }
 
-fn main() {
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
     // 🔄 Ensure there's always a config.json present
     ensure_config();
 
@@ -73,11 +79,32 @@ fn main() {
         });
     }
 
-    // 6️⃣ Keep main thread alive
-    println!("📡 Main thread entering loop...");
-    for _frame in rx {
-        // no-op
-    }
+    // 6️⃣ Set up a LocalSet for the API server.
+    let local = LocalSet::new();
+    local
+        .run_until(async move {
+            // 7️⃣ Spawn the API server thread
+            {
+                let api_state = ltc_state.clone();
+                let offset_clone = hw_offset.clone();
+                task::spawn_local(async move {
+                    if let Err(e) = start_api_server(api_state, offset_clone).await {
+                        eprintln!("API server error: {}", e);
+                    }
+                });
+            }
+
+            // 8️⃣ Keep main thread alive by consuming LTC frames in a blocking task
+            println!("📡 Main thread entering loop...");
+            let _ = task::spawn_blocking(move || {
+                // This will block the thread, but it's a blocking-safe thread.
+                for _frame in rx {
+                    // no-op
+                }
+            })
+            .await;
+        })
+        .await;
 }
 
 #[cfg(test)]
