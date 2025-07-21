@@ -229,4 +229,71 @@ mod tests {
         assert_eq!(*state.offset_history.front().unwrap(), 5); // 0-4 are pushed out
         assert_eq!(*state.offset_history.back().unwrap(), 24);
     }
+
+    #[test]
+    fn test_timecode_match_status_in_sync() {
+        let mut state = LtcState::new();
+        state.last_match_check = 0; // Force check to run
+
+        let now = Local::now();
+        let frame_in_sync = get_test_frame("LOCK", now.hour(), now.minute(), now.second());
+        state.update(frame_in_sync);
+
+        // This will fail due to the bug (`latest` is None during check).
+        // Expected: "IN SYNC", Actual: "UNKNOWN". This exposes the bug.
+        assert_eq!(state.timecode_match(), "IN SYNC");
+    }
+
+    #[test]
+    fn test_timecode_match_status_out_of_sync() {
+        let mut state = LtcState::new();
+        state.last_match_check = 0; // Force check to run
+
+        let now = Local::now();
+        let different_hour = (now.hour() + 1) % 24;
+        let frame_out_of_sync = get_test_frame("LOCK", different_hour, now.minute(), now.second());
+        state.update(frame_out_of_sync);
+
+        // This will also fail due to the bug.
+        // Expected: "OUT OF SYNC", Actual: "UNKNOWN".
+        assert_eq!(state.timecode_match(), "OUT OF SYNC");
+    }
+
+    #[test]
+    fn test_timecode_match_throttling() {
+        let mut state = LtcState::new();
+        let now = Local::now();
+
+        // First call. With the bug, status becomes UNKNOWN. With fix, OUT OF SYNC.
+        // The test is written for the fixed behavior.
+        state.last_match_check = 0;
+        let frame_out_of_sync =
+            get_test_frame("LOCK", (now.hour() + 1) % 24, now.minute(), now.second());
+        state.update(frame_out_of_sync.clone());
+        assert_eq!(
+            state.timecode_match(),
+            "OUT OF SYNC",
+            "Initial status should be out of sync"
+        );
+
+        // Second call, immediately. Check should be throttled.
+        // Status should not change, even though we pass an in-sync frame.
+        let frame_in_sync = get_test_frame("LOCK", now.hour(), now.minute(), now.second());
+        state.update(frame_in_sync.clone());
+        assert_eq!(
+            state.timecode_match(),
+            "OUT OF SYNC",
+            "Status should not change due to throttling"
+        );
+
+        // Third call, forcing check to run again.
+        // Status should now update to IN SYNC.
+        state.last_match_check = 0;
+        state.update(frame_in_sync.clone());
+        assert_eq!(
+            state.timecode_match(),
+            "IN SYNC",
+            "Status should update after throttle period"
+        );
+    }
 }
