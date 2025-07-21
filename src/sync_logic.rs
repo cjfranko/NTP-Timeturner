@@ -91,6 +91,18 @@ impl LtcState {
         match frame.status.as_str() {
             "LOCK" => {
                 self.lock_count += 1;
+
+                // Recompute timecode-match every 5 seconds
+                let now_secs = Utc::now().timestamp();
+                if now_secs - self.last_match_check >= 5 {
+                    self.last_match_status = if frame.matches_system_time() {
+                        "IN SYNC"
+                    } else {
+                        "OUT OF SYNC"
+                    }
+                    .into();
+                    self.last_match_check = now_secs;
+                }
             }
             "FREE" => {
                 self.free_count += 1;
@@ -99,18 +111,6 @@ impl LtcState {
                 self.last_match_status = "UNKNOWN".into();
             }
             _ => {}
-        }
-
-        // Recompute timecode-match every 5 seconds
-        let now_secs = Utc::now().timestamp();
-        if now_secs - self.last_match_check >= 5 {
-            self.last_match_status = if let Some(frame) = &self.latest {
-                if frame.matches_system_time() { "IN SYNC" } else { "OUT OF SYNC" }
-            } else {
-                "UNKNOWN"
-            }
-            .into();
-            self.last_match_check = now_secs;
         }
 
         self.latest = Some(frame);
@@ -159,5 +159,136 @@ impl LtcState {
     /// Get timecode-match status.
     pub fn timecode_match(&self) -> &str {
         &self.last_match_status
+    }
+}
+// This module provides the logic for handling LTC (Linear Timecode) frames and maintaining state.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{Local, Utc};
+
+    fn get_test_frame(status: &str, h: u32, m: u32, s: u32) -> LtcFrame {
+        LtcFrame {
+            status: status.to_string(),
+            hours: h,
+            minutes: m,
+            seconds: s,
+            frames: 0,
+            frame_rate: 25.0,
+            timestamp: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn test_ltc_frame_matches_system_time() {
+        let now = Local::now();
+        let frame = get_test_frame("LOCK", now.hour(), now.minute(), now.second());
+        assert!(frame.matches_system_time());
+    }
+
+    #[test]
+    fn test_ltc_frame_does_not_match_system_time() {
+        let now = Local::now();
+        // Create a time that is one hour ahead, wrapping around 23:00
+        let different_hour = (now.hour() + 1) % 24;
+        let frame = get_test_frame("LOCK", different_hour, now.minute(), now.second());
+        assert!(!frame.matches_system_time());
+    }
+
+    #[test]
+    fn test_ltc_state_update_lock() {
+        let mut state = LtcState::new();
+        let frame = get_test_frame("LOCK", 10, 20, 30);
+        state.update(frame);
+        assert_eq!(state.lock_count, 1);
+        assert_eq!(state.free_count, 0);
+        assert!(state.latest.is_some());
+    }
+
+    #[test]
+    fn test_ltc_state_update_free() {
+        let mut state = LtcState::new();
+        state.record_offset(100);
+        assert!(!state.offset_history.is_empty());
+
+        let frame = get_test_frame("FREE", 10, 20, 30);
+        state.update(frame);
+        assert_eq!(state.lock_count, 0);
+        assert_eq!(state.free_count, 1);
+        assert!(state.offset_history.is_empty()); // Offsets should be cleared
+        assert_eq!(state.last_match_status, "UNKNOWN");
+    }
+
+    #[test]
+    fn test_offset_history_management() {
+        let mut state = LtcState::new();
+        for i in 0..25 {
+            state.record_offset(i);
+        }
+        assert_eq!(state.offset_history.len(), 20);
+        assert_eq!(*state.offset_history.front().unwrap(), 5); // 0-4 are pushed out
+        assert_eq!(*state.offset_history.back().unwrap(), 24);
+    }
+
+    #[test]
+    fn test_timecode_match_status_in_sync() {
+        let mut state = LtcState::new();
+        state.last_match_check = 0; // Force check to run
+
+        let now = Local::now();
+        let frame_in_sync = get_test_frame("LOCK", now.hour(), now.minute(), now.second());
+        state.update(frame_in_sync);
+        assert_eq!(state.timecode_match(), "IN SYNC");
+    }
+
+    #[test]
+    fn test_timecode_match_status_out_of_sync() {
+        let mut state = LtcState::new();
+        state.last_match_check = 0; // Force check to run
+
+        let now = Local::now();
+        let different_hour = (now.hour() + 1) % 24;
+        let frame_out_of_sync = get_test_frame("LOCK", different_hour, now.minute(), now.second());
+        state.update(frame_out_of_sync);
+
+        assert_eq!(state.timecode_match(), "OUT OF SYNC");
+    }
+
+    #[test]
+    fn test_timecode_match_throttling() {
+        let mut state = LtcState::new();
+        let now = Local::now();
+
+        // First call. With the bug, status becomes UNKNOWN. With fix, OUT OF SYNC.
+        // The test is written for the fixed behavior.
+        state.last_match_check = 0;
+        let frame_out_of_sync =
+            get_test_frame("LOCK", (now.hour() + 1) % 24, now.minute(), now.second());
+        state.update(frame_out_of_sync.clone());
+        assert_eq!(
+            state.timecode_match(),
+            "OUT OF SYNC",
+            "Initial status should be out of sync"
+        );
+
+        // Second call, immediately. Check should be throttled.
+        // Status should not change, even though we pass an in-sync frame.
+        let frame_in_sync = get_test_frame("LOCK", now.hour(), now.minute(), now.second());
+        state.update(frame_in_sync.clone());
+        assert_eq!(
+            state.timecode_match(),
+            "OUT OF SYNC",
+            "Status should not change due to throttling"
+        );
+
+        // Third call, forcing check to run again.
+        // Status should now update to IN SYNC.
+        state.last_match_check = 0;
+        state.update(frame_in_sync.clone());
+        assert_eq!(
+            state.timecode_match(),
+            "IN SYNC",
+            "Status should update after throttle period"
+        );
     }
 }
