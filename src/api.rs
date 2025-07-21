@@ -11,7 +11,7 @@ use crate::sync_logic::LtcState;
 use crate::ui;
 
 // Data structure for the main status response
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct ApiStatus {
     ltc_status: String,
     ltc_timecode: String,
@@ -104,7 +104,7 @@ async fn manual_sync(data: web::Data<AppState>) -> impl Responder {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct ConfigResponse {
     hardware_offset_ms: i64,
 }
@@ -162,4 +162,174 @@ pub async fn start_api_server(
     .bind("0.0.0.0:8080")?
     .run()
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sync_logic::LtcFrame;
+    use actix_web::{test, App};
+    use chrono::Utc;
+    use std::collections::VecDeque;
+    use std::fs;
+
+    // Helper to create a default LtcState for tests
+    fn get_test_state() -> LtcState {
+        LtcState {
+            latest: Some(LtcFrame {
+                status: "LOCK".to_string(),
+                hours: 1,
+                minutes: 2,
+                seconds: 3,
+                frames: 4,
+                frame_rate: 25.0,
+                timestamp: Utc::now(),
+            }),
+            lock_count: 10,
+            free_count: 1,
+            offset_history: VecDeque::from(vec![1, 2, 3]),
+            clock_delta_history: VecDeque::from(vec![4, 5, 6]),
+            last_match_status: "IN SYNC".to_string(),
+            last_match_check: Utc::now().timestamp(),
+        }
+    }
+
+    #[actix_web::test]
+    async fn test_get_status() {
+        let ltc_state = Arc::new(Mutex::new(get_test_state()));
+        let hw_offset = Arc::new(Mutex::new(10i64));
+
+        let app_state = web::Data::new(AppState {
+            ltc_state: ltc_state.clone(),
+            hw_offset: hw_offset.clone(),
+        });
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .service(get_status),
+        )
+        .await;
+
+        let req = test::TestRequest::get().uri("/api/status").to_request();
+        let resp: ApiStatus = test::call_and_read_body_json(&app, req).await;
+
+        assert_eq!(resp.ltc_status, "LOCK");
+        assert_eq!(resp.ltc_timecode, "01:02:03:04");
+        assert_eq!(resp.frame_rate, "25.00fps");
+        assert_eq!(resp.hardware_offset_ms, 10);
+    }
+
+    #[actix_web::test]
+    async fn test_get_config() {
+        let ltc_state = Arc::new(Mutex::new(LtcState::new()));
+        let hw_offset = Arc::new(Mutex::new(25i64));
+
+        let app_state = web::Data::new(AppState {
+            ltc_state: ltc_state.clone(),
+            hw_offset: hw_offset.clone(),
+        });
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .service(get_config),
+        )
+        .await;
+
+        let req = test::TestRequest::get().uri("/api/config").to_request();
+        let resp: ConfigResponse = test::call_and_read_body_json(&app, req).await;
+
+        assert_eq!(resp.hardware_offset_ms, 25);
+    }
+
+    #[actix_web::test]
+    async fn test_update_config() {
+        let ltc_state = Arc::new(Mutex::new(LtcState::new()));
+        let hw_offset = Arc::new(Mutex::new(0i64));
+        let config_path = "config.json";
+
+        // This test has the side effect of writing to `config.json`.
+        // We ensure it's cleaned up after.
+        let _ = fs::remove_file(config_path);
+
+        let app_state = web::Data::new(AppState {
+            ltc_state: ltc_state.clone(),
+            hw_offset: hw_offset.clone(),
+        });
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .service(update_config),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/config")
+            .set_json(&serde_json::json!({ "hardware_offset_ms": 55 }))
+            .to_request();
+
+        let resp: Config = test::call_and_read_body_json(&app, req).await;
+
+        assert_eq!(resp.hardware_offset_ms, 55);
+        assert_eq!(*hw_offset.lock().unwrap(), 55);
+
+        // Test that the file was written
+        assert!(fs::metadata(config_path).is_ok());
+        let contents = fs::read_to_string(config_path).unwrap();
+        assert!(contents.contains("\"hardware_offset_ms\": 55"));
+
+        // Cleanup
+        let _ = fs::remove_file(config_path);
+    }
+
+    #[actix_web::test]
+    async fn test_manual_sync_no_ltc() {
+        // State with no LTC frame
+        let ltc_state = Arc::new(Mutex::new(LtcState::new()));
+        let hw_offset = Arc::new(Mutex::new(0i64));
+
+        let app_state = web::Data::new(AppState {
+            ltc_state: ltc_state.clone(),
+            hw_offset: hw_offset.clone(),
+        });
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .service(manual_sync),
+        )
+        .await;
+
+        let req = test::TestRequest::post().uri("/api/sync").to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status(), 400); // Bad Request
+    }
+
+    #[actix_web::test]
+    async fn test_manual_sync_fails() {
+        // State with an LTC frame, but sync command will fail in test env
+        let ltc_state = Arc::new(Mutex::new(get_test_state()));
+        let hw_offset = Arc::new(Mutex::new(0i64));
+
+        let app_state = web::Data::new(AppState {
+            ltc_state: ltc_state.clone(),
+            hw_offset: hw_offset.clone(),
+        });
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .service(manual_sync),
+        )
+        .await;
+
+        let req = test::TestRequest::post().uri("/api/sync").to_request();
+        let resp = test::call_service(&app, req).await;
+
+        // Expecting failure because `sudo date` won't work here.
+        assert_eq!(resp.status(), 500); // Internal Server Error
+    }
 }
