@@ -103,9 +103,16 @@ async fn main() {
         });
     } else {
         println!("🚀 Starting TimeTurner daemon...");
-        systemd_journal_logger::init().unwrap();
-        log::set_max_level(log::LevelFilter::Info);
-        log::info!("TimeTurner daemon started. API server is running.");
+        #[cfg(target_os = "linux")]
+        {
+            systemd_journal_logger::init().unwrap();
+            log::set_max_level(log::LevelFilter::Info);
+            log::info!("TimeTurner daemon started. API server is running.");
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            println!("Daemon mode started. API server is running. Logging to system journal is only supported on Linux.");
+        }
     }
 
     // 6️⃣ Set up a LocalSet for the API server and main loop

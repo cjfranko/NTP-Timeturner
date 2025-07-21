@@ -5,10 +5,18 @@ use std::process::Command;
 
 /// Check if Chrony is active
 pub fn ntp_service_active() -> bool {
-    if let Ok(output) = Command::new("systemctl").args(&["is-active", "chrony"]).output() {
-        output.status.success()
-            && String::from_utf8_lossy(&output.stdout).trim() == "active"
-    } else {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(output) = Command::new("systemctl").args(&["is-active", "chrony"]).output() {
+            output.status.success()
+                && String::from_utf8_lossy(&output.stdout).trim() == "active"
+        } else {
+            false
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        // systemctl is not available on non-Linux platforms.
         false
     }
 }
@@ -16,8 +24,17 @@ pub fn ntp_service_active() -> bool {
 /// Toggle Chrony (not used yet)
 #[allow(dead_code)]
 pub fn ntp_service_toggle(start: bool) {
-    let action = if start { "start" } else { "stop" };
-    let _ = Command::new("systemctl").args(&[action, "chrony"]).status();
+    #[cfg(target_os = "linux")]
+    {
+        let action = if start { "start" } else { "stop" };
+        let _ = Command::new("systemctl").args(&[action, "chrony"]).status();
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        // No-op on non-Linux.
+        // The parameter is unused, but the function is dead code anyway.
+        let _ = start;
+    }
 }
 
 pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
