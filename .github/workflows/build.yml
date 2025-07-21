@@ -1,0 +1,70 @@
+name: Build for Raspberry Pi
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+  # Target for 64-bit Raspberry Pi (Raspberry Pi OS)
+  RUST_TARGET: aarch64-unknown-linux-gnu
+
+jobs:
+  build:
+    name: Build for aarch64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.RUST_TARGET }}
+
+
+
+      - name: Install cross-compilation dependencies
+        run: |
+          sudo dpkg --add-architecture arm64
+          # Configure sources for ARM64 packages - all ARM64 packages come from ports.ubuntu.com
+          sudo tee /etc/apt/sources.list.d/arm64.list > /dev/null <<'EOF'
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+          EOF
+          # Modify existing sources to exclude arm64 architecture
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
+          sudo apt-get update -y
+          # Install build tools and cross-compilation libraries for Raspberry Pi 5
+          sudo apt-get install -y gcc-aarch64-linux-gnu libudev-dev:arm64 pkg-config cmake libudev-dev
+          # Ensure pkg-config can find ARM64 libraries
+          sudo apt-get install -y libpkgconf3:arm64
+      - name: Install Rust dependencies
+        run: cargo fetch --target ${{ env.RUST_TARGET }}
+      - name: Build release binary
+        run: cargo build --release --target ${{ env.RUST_TARGET }}
+        env:
+          # Set linker for the target
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          # Configure pkg-config for cross-compilation
+          PKG_CONFIG_ALLOW_CROSS: 1
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_LIBDIR: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /
+          PKG_CONFIG_ALLOW_SYSTEM_LIBS: 1
+          PKG_CONFIG_ALLOW_SYSTEM_CFLAGS: 1
+          # Add library path for the cross-compiler's linker
+          RUSTFLAGS: -L/usr/lib/aarch64-linux-gnu
+      - name: Run tests on native platform
+        run: cargo test --release --bin ntp_timeturner
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeturner-aarch64
+          path: target/${{ env.RUST_TARGET }}/release/ntp_timeturner

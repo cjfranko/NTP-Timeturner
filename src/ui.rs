@@ -1,4 +1,4 @@
-﻿// src/ui.rs
+// src/ui.rs
 
 use std::{
     io::{stdout, Write},
@@ -32,8 +32,8 @@ fn ntp_service_active() -> bool {
 }
 
 /// Toggle the Chrony service (start if `start` is true, stop otherwise)
-#[allow(dead_code)]
-fn ntp_service_toggle(start: bool) {
+
+fn _ntp_service_toggle(start: bool) {
     let action = if start { "start" } else { "stop" };
     let _ = Command::new("systemctl").args(&[action, "chrony"]).status();
 }
