@@ -21,7 +21,7 @@ use crossterm::{
 
 use crate::config::Config;
 use get_if_addrs::get_if_addrs;
-use crate::sync_logic::{get_jitter_status, get_sync_status, LtcFrame, LtcState};
+use crate::sync_logic::{get_jitter_status, get_sync_status, LtcState};
 use crate::system;
 
 
