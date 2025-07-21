@@ -13,6 +13,7 @@ use crate::serial_input::start_serial_thread;
 use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
 use clap::Parser;
+use env_logger;
 
 use std::{
     fs,
@@ -102,17 +103,11 @@ async fn main() {
             start_ui(ui_state, port, config_clone);
         });
     } else {
-        println!("🚀 Starting TimeTurner daemon...");
-        #[cfg(target_os = "linux")]
-        {
-            systemd::journal::init().unwrap();
-            log::set_max_level(log::LevelFilter::Info);
-            log::info!("TimeTurner daemon started. API server is running.");
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            println!("Daemon mode started. API server is running. Logging to system journal is only supported on Linux.");
-        }
+        // In daemon mode, we initialize env_logger.
+        // This will log to stdout, and the systemd service will capture it.
+        // The RUST_LOG env var controls the log level (e.g., RUST_LOG=info).
+        env_logger::init();
+        log::info!("🚀 Starting TimeTurner daemon...");
     }
 
     // 6️⃣ Set up a LocalSet for the API server and main loop

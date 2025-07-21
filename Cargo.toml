@@ -18,7 +18,5 @@ actix-files = "0.6"
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4.4", features = ["derive"] }
 log = "0.4"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-systemd = { version = "0.10", features = ["journal", "vendored"] }
+env_logger = "0.11"
 
