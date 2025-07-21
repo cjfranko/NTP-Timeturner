@@ -124,9 +124,9 @@ pub fn start_ui(
         }
 
         // 6️⃣ sync status wording
-        let sync_status = if cached_delta_ms.abs() <= 5 {
+        let sync_status = if cached_delta_ms.abs() <= 8 {
             "IN SYNC"
-        } else if cached_delta_ms > 5 {
+        } else if cached_delta_ms > 10 {
             "CLOCK AHEAD"
         } else {
             "CLOCK BEHIND"
@@ -279,7 +279,7 @@ pub fn start_ui(
         // footer + logs
         queue!(
             stdout,
-            MoveTo(2, 16), Print("[S] Sync sys clock to LTC    [Q] Quit"),
+            MoveTo(2, 16), Print("[S] Sync System Clock to LTC    [Q] Quit"),
         ).unwrap();
         for (i, msg) in logs.iter().enumerate() {
             queue!(stdout, MoveTo(2, 18 + i as u16), Print(msg)).unwrap();
