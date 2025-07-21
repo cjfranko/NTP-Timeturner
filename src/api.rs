@@ -1,4 +1,5 @@
 
+use actix_files as fs;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use chrono::{Local, Timelike};
 use get_if_addrs::get_if_addrs;
@@ -30,13 +31,14 @@ struct ApiStatus {
 // AppState to hold shared data
 pub struct AppState {
     pub ltc_state: Arc<Mutex<LtcState>>,
-    pub hw_offset: Arc<Mutex<i64>>,
+    pub config: Arc<Mutex<Config>>,
 }
 
 #[get("/api/status")]
 async fn get_status(data: web::Data<AppState>) -> impl Responder {
     let state = data.ltc_state.lock().unwrap();
-    let hw_offset_ms = *data.hw_offset.lock().unwrap();
+    let config = data.config.lock().unwrap();
+    let hw_offset_ms = config.hardware_offset_ms;
 
     let ltc_status = state.latest.as_ref().map_or("(waiting)".to_string(), |f| f.status.clone());
     let ltc_timecode = state.latest.as_ref().map_or("…".to_string(), |f| {
@@ -62,7 +64,7 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         delta_frames = ((avg_delta as f64 / frame_ms).round()) as i64;
     }
 
-    let sync_status = ui::get_sync_status(avg_delta).to_string();
+    let sync_status = ui::get_sync_status(avg_delta, &config).to_string();
     let jitter_status = ui::get_jitter_status(state.average_jitter()).to_string();
     let lock_ratio = state.lock_ratio();
 
@@ -93,8 +95,9 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
 #[post("/api/sync")]
 async fn manual_sync(data: web::Data<AppState>) -> impl Responder {
     let state = data.ltc_state.lock().unwrap();
+    let config = data.config.lock().unwrap();
     if let Some(frame) = &state.latest {
-        if ui::trigger_sync(frame).is_ok() {
+        if ui::trigger_sync(frame, &config).is_ok() {
             HttpResponse::Ok().json(serde_json::json!({ "status": "success", "message": "Sync command issued." }))
         } else {
             HttpResponse::InternalServerError().json(serde_json::json!({ "status": "error", "message": "Sync command failed." }))
@@ -104,49 +107,35 @@ async fn manual_sync(data: web::Data<AppState>) -> impl Responder {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct ConfigResponse {
-    hardware_offset_ms: i64,
-}
-
 #[get("/api/config")]
 async fn get_config(data: web::Data<AppState>) -> impl Responder {
-    let hw_offset_ms = *data.hw_offset.lock().unwrap();
-    HttpResponse::Ok().json(ConfigResponse { hardware_offset_ms: hw_offset_ms })
-}
-
-#[derive(Deserialize)]
-struct UpdateConfigRequest {
-    hardware_offset_ms: i64,
+    let config = data.config.lock().unwrap();
+    HttpResponse::Ok().json(&*config)
 }
 
 #[post("/api/config")]
 async fn update_config(
     data: web::Data<AppState>,
-    req: web::Json<UpdateConfigRequest>,
+    req: web::Json<Config>,
 ) -> impl Responder {
-    let mut hw_offset = data.hw_offset.lock().unwrap();
-    *hw_offset = req.hardware_offset_ms;
+    let mut config = data.config.lock().unwrap();
+    *config = req.into_inner();
 
-    let new_config = Config {
-        hardware_offset_ms: *hw_offset,
-    };
-
-    if config::save_config("config.json", &new_config).is_ok() {
-        eprintln!("🔄 Saved hardware_offset_ms = {} via API", *hw_offset);
-        HttpResponse::Ok().json(&new_config)
+    if config::save_config("config.yml", &config).is_ok() {
+        eprintln!("🔄 Saved config via API: {:?}", *config);
+        HttpResponse::Ok().json(&*config)
     } else {
-        HttpResponse::InternalServerError().json(serde_json::json!({ "status": "error", "message": "Failed to write config.json" }))
+        HttpResponse::InternalServerError().json(serde_json::json!({ "status": "error", "message": "Failed to write config.yml" }))
     }
 }
 
 pub async fn start_api_server(
     state: Arc<Mutex<LtcState>>,
-    offset: Arc<Mutex<i64>>,
+    config: Arc<Mutex<Config>>,
 ) -> std::io::Result<()> {
     let app_state = web::Data::new(AppState {
         ltc_state: state,
-        hw_offset: offset,
+        config: config,
     });
 
     println!("🚀 Starting API server at http://0.0.0.0:8080");
@@ -158,6 +147,8 @@ pub async fn start_api_server(
             .service(manual_sync)
             .service(get_config)
             .service(update_config)
+            // Serve frontend static files
+            .service(fs::Files::new("/", "static/").index_file("index.html"))
     })
     .bind("0.0.0.0:8080")?
     .run()
@@ -167,6 +158,7 @@ pub async fn start_api_server(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::TimeturnerOffset;
     use crate::sync_logic::LtcFrame;
     use actix_web::{test, App};
     use chrono::Utc;
@@ -174,7 +166,7 @@ mod tests {
     use std::fs;
 
     // Helper to create a default LtcState for tests
-    fn get_test_state() -> LtcState {
+    fn get_test_ltc_state() -> LtcState {
         LtcState {
             latest: Some(LtcFrame {
                 status: "LOCK".to_string(),
@@ -194,16 +186,21 @@ mod tests {
         }
     }
 
+    // Helper to create a default AppState for tests
+    fn get_test_app_state() -> web::Data<AppState> {
+        let ltc_state = Arc::new(Mutex::new(get_test_ltc_state()));
+        let config = Arc::new(Mutex::new(Config {
+            hardware_offset_ms: 10,
+            timeturner_offset: TimeturnerOffset {
+                hours: 0, minutes: 0, seconds: 0, frames: 0
+            }
+        }));
+        web::Data::new(AppState { ltc_state, config })
+    }
+
     #[actix_web::test]
     async fn test_get_status() {
-        let ltc_state = Arc::new(Mutex::new(get_test_state()));
-        let hw_offset = Arc::new(Mutex::new(10i64));
-
-        let app_state = web::Data::new(AppState {
-            ltc_state: ltc_state.clone(),
-            hw_offset: hw_offset.clone(),
-        });
-
+        let app_state = get_test_app_state();
         let app = test::init_service(
             App::new()
                 .app_data(app_state.clone())
@@ -222,13 +219,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_config() {
-        let ltc_state = Arc::new(Mutex::new(LtcState::new()));
-        let hw_offset = Arc::new(Mutex::new(25i64));
-
-        let app_state = web::Data::new(AppState {
-            ltc_state: ltc_state.clone(),
-            hw_offset: hw_offset.clone(),
-        });
+        let app_state = get_test_app_state();
+        app_state.config.lock().unwrap().hardware_offset_ms = 25;
 
         let app = test::init_service(
             App::new()
@@ -238,25 +230,19 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get().uri("/api/config").to_request();
-        let resp: ConfigResponse = test::call_and_read_body_json(&app, req).await;
+        let resp: Config = test::call_and_read_body_json(&app, req).await;
 
         assert_eq!(resp.hardware_offset_ms, 25);
     }
 
     #[actix_web::test]
     async fn test_update_config() {
-        let ltc_state = Arc::new(Mutex::new(LtcState::new()));
-        let hw_offset = Arc::new(Mutex::new(0i64));
-        let config_path = "config.json";
+        let app_state = get_test_app_state();
+        let config_path = "config.yml";
 
-        // This test has the side effect of writing to `config.json`.
+        // This test has the side effect of writing to `config.yml`.
         // We ensure it's cleaned up after.
         let _ = fs::remove_file(config_path);
-
-        let app_state = web::Data::new(AppState {
-            ltc_state: ltc_state.clone(),
-            hw_offset: hw_offset.clone(),
-        });
 
         let app = test::init_service(
             App::new()
@@ -265,20 +251,29 @@ mod tests {
         )
         .await;
 
+        let new_config_json = serde_json::json!({
+            "hardwareOffsetMs": 55,
+            "timeturnerOffset": { "hours": 1, "minutes": 2, "seconds": 3, "frames": 4 }
+        });
+
         let req = test::TestRequest::post()
             .uri("/api/config")
-            .set_json(&serde_json::json!({ "hardware_offset_ms": 55 }))
+            .set_json(&new_config_json)
             .to_request();
 
         let resp: Config = test::call_and_read_body_json(&app, req).await;
 
         assert_eq!(resp.hardware_offset_ms, 55);
-        assert_eq!(*hw_offset.lock().unwrap(), 55);
+        assert_eq!(resp.timeturner_offset.hours, 1);
+        let final_config = app_state.config.lock().unwrap();
+        assert_eq!(final_config.hardware_offset_ms, 55);
+        assert_eq!(final_config.timeturner_offset.hours, 1);
 
         // Test that the file was written
         assert!(fs::metadata(config_path).is_ok());
         let contents = fs::read_to_string(config_path).unwrap();
-        assert!(contents.contains("\"hardware_offset_ms\": 55"));
+        assert!(contents.contains("hardwareOffsetMs: 55"));
+        assert!(contents.contains("hours: 1"));
 
         // Cleanup
         let _ = fs::remove_file(config_path);
@@ -286,14 +281,9 @@ mod tests {
 
     #[actix_web::test]
     async fn test_manual_sync_no_ltc() {
+        let app_state = get_test_app_state();
         // State with no LTC frame
-        let ltc_state = Arc::new(Mutex::new(LtcState::new()));
-        let hw_offset = Arc::new(Mutex::new(0i64));
-
-        let app_state = web::Data::new(AppState {
-            ltc_state: ltc_state.clone(),
-            hw_offset: hw_offset.clone(),
-        });
+        app_state.ltc_state.lock().unwrap().latest = None;
 
         let app = test::init_service(
             App::new()

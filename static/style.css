@@ -1,0 +1,91 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.container {
+    width: 100%;
+    max-width: 960px;
+}
+
+h1 {
+    text-align: center;
+    color: #444;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card h2 {
+    margin-top: 0;
+    color: #0056b3;
+}
+
+.card p, .card ul {
+    margin: 10px 0;
+}
+
+.card ul {
+    padding-left: 20px;
+    list-style: none;
+}
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+.control-group {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+input[type="number"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 80px;
+}
+
+button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+#sync-message {
+    font-style: italic;
+    color: #555;
+}
+
+/* Status-specific colors */
+#sync-status.in-sync, #jitter-status.good { font-weight: bold; color: #28a745; }
+#sync-status.clock-ahead, #sync-status.clock-behind, #jitter-status.average { font-weight: bold; color: #ffc107; }
+#sync-status.timeturning { font-weight: bold; color: #17a2b8; }
+#jitter-status.bad { font-weight: bold; color: #dc3545; }
+#ntp-active.active { font-weight: bold; color: #28a745; }
+#ntp-active.inactive { font-weight: bold; color: #dc3545; }
