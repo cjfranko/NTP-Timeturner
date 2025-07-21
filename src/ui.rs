@@ -39,6 +39,26 @@ fn ntp_service_toggle(start: bool) {
     let _ = Command::new("systemctl").args(&[action, "chrony"]).status();
 }
 
+fn get_sync_status(delta_ms: i64) -> &'static str {
+    if delta_ms.abs() <= 8 {
+        "IN SYNC"
+    } else if delta_ms > 10 {
+        "CLOCK AHEAD"
+    } else {
+        "CLOCK BEHIND"
+    }
+}
+
+fn get_jitter_status(jitter_ms: i64) -> &'static str {
+    if jitter_ms.abs() < 10 {
+        "GOOD"
+    } else if jitter_ms.abs() < 40 {
+        "AVERAGE"
+    } else {
+        "BAD"
+    }
+}
+
 pub fn start_ui(
     state: Arc<Mutex<LtcState>>,
     serial_port: String,
@@ -124,13 +144,7 @@ pub fn start_ui(
         }
 
         // 6️⃣ sync status wording
-        let sync_status = if cached_delta_ms.abs() <= 8 {
-            "IN SYNC"
-        } else if cached_delta_ms > 10 {
-            "CLOCK AHEAD"
-        } else {
-            "CLOCK BEHIND"
-        };
+        let sync_status = get_sync_status(cached_delta_ms);
 
         // 7️⃣ auto‑sync (same as manual but delayed)
         if sync_status != "IN SYNC" {
@@ -249,13 +263,7 @@ pub fn start_ui(
         ).unwrap();
 
         // jitter & lock ratio
-        let jstatus = if avg_jitter_ms.abs() < 10 {
-            "GOOD"
-        } else if avg_jitter_ms.abs() < 40 {
-            "AVERAGE"
-        } else {
-            "BAD"
-        };
+        let jstatus = get_jitter_status(avg_jitter_ms);
         let jcol = if jstatus == "GOOD" {
             Color::Green
         } else if jstatus == "AVERAGE" {
@@ -334,5 +342,34 @@ pub fn start_ui(
         }
 
         thread::sleep(Duration::from_millis(25));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_sync_status() {
+        assert_eq!(get_sync_status(0), "IN SYNC");
+        assert_eq!(get_sync_status(8), "IN SYNC");
+        assert_eq!(get_sync_status(-8), "IN SYNC");
+        assert_eq!(get_sync_status(9), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(10), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(11), "CLOCK AHEAD");
+        assert_eq!(get_sync_status(-9), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(-100), "CLOCK BEHIND");
+    }
+
+    #[test]
+    fn test_get_jitter_status() {
+        assert_eq!(get_jitter_status(5), "GOOD");
+        assert_eq!(get_jitter_status(-5), "GOOD");
+        assert_eq!(get_jitter_status(9), "GOOD");
+        assert_eq!(get_jitter_status(10), "AVERAGE");
+        assert_eq!(get_jitter_status(39), "AVERAGE");
+        assert_eq!(get_jitter_status(-39), "AVERAGE");
+        assert_eq!(get_jitter_status(40), "BAD");
+        assert_eq!(get_jitter_status(-40), "BAD");
     }
 }
