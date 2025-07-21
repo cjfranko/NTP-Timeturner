@@ -67,7 +67,7 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
     let lock_ratio = state.lock_ratio();
 
     let ntp_active = ui::ntp_service_active();
-    let interfaces = get_if_addrs::get_if_addrs()
+    let interfaces = get_if_addrs()
         .unwrap_or_default()
         .into_iter()
         .filter(|ifa| !ifa.is_loopback())
@@ -86,7 +86,7 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         lock_ratio,
         ntp_active,
         interfaces,
-        hardware_offset_ms,
+        hardware_offset_ms: hw_offset_ms,
     })
 }
 
@@ -112,7 +112,7 @@ struct ConfigResponse {
 #[get("/api/config")]
 async fn get_config(data: web::Data<AppState>) -> impl Responder {
     let hw_offset_ms = *data.hw_offset.lock().unwrap();
-    HttpResponse::Ok().json(ConfigResponse { hardware_offset_ms })
+    HttpResponse::Ok().json(ConfigResponse { hardware_offset_ms: hw_offset_ms })
 }
 
 #[derive(Deserialize)]

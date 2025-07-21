@@ -32,7 +32,7 @@ fn ensure_config() {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     // 🔄 Ensure there's always a config.json present
     ensure_config();
