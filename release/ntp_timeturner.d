@@ -1,0 +1,1 @@
+/home/hermione/target/release/ntp_timeturner: /home/hermione/config.json /home/hermione/src/config.rs /home/hermione/src/main.rs /home/hermione/src/serial_input.rs /home/hermione/src/sync_logic.rs /home/hermione/src/ui.rs
