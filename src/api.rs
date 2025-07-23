@@ -8,8 +8,8 @@ use serde_json;
 use std::sync::{Arc, Mutex};
 
 use crate::config::{self, Config};
-use crate::sync_logic::LtcState;
-use crate::ui;
+use crate::sync_logic::{self, LtcState};
+use crate::system;
 
 // Data structure for the main status response
 #[derive(Serialize, Deserialize)]
@@ -64,11 +64,11 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         delta_frames = ((avg_delta as f64 / frame_ms).round()) as i64;
     }
 
-    let sync_status = ui::get_sync_status(avg_delta, &config).to_string();
-    let jitter_status = ui::get_jitter_status(state.average_jitter()).to_string();
+    let sync_status = sync_logic::get_sync_status(avg_delta, &config);
+    let jitter_status = sync_logic::get_jitter_status(state.average_jitter());
     let lock_ratio = state.lock_ratio();
 
-    let ntp_active = ui::ntp_service_active();
+    let ntp_active = system::ntp_service_active();
     let interfaces = get_if_addrs()
         .unwrap_or_default()
         .into_iter()
@@ -83,8 +83,8 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         system_clock,
         timecode_delta_ms: avg_delta,
         timecode_delta_frames: delta_frames,
-        sync_status,
-        jitter_status,
+        sync_status: sync_status.to_string(),
+        jitter_status: jitter_status.to_string(),
         lock_ratio,
         ntp_active,
         interfaces,
@@ -97,7 +97,7 @@ async fn manual_sync(data: web::Data<AppState>) -> impl Responder {
     let state = data.ltc_state.lock().unwrap();
     let config = data.config.lock().unwrap();
     if let Some(frame) = &state.latest {
-        if ui::trigger_sync(frame, &config).is_ok() {
+        if system::trigger_sync(frame, &config).is_ok() {
             HttpResponse::Ok().json(serde_json::json!({ "status": "success", "message": "Sync command issued." }))
         } else {
             HttpResponse::InternalServerError().json(serde_json::json!({ "status": "error", "message": "Sync command failed." }))

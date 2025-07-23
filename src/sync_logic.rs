@@ -1,4 +1,5 @@
-﻿use chrono::{DateTime, Local, Timelike, Utc};
+﻿use crate::config::Config;
+use chrono::{DateTime, Local, Timelike, Utc};
 use regex::Captures;
 use std::collections::VecDeque;
 
@@ -170,10 +171,33 @@ impl LtcState {
         &self.last_match_status
     }
 }
+
+pub fn get_sync_status(delta_ms: i64, config: &Config) -> &'static str {
+    if config.timeturner_offset.is_active() {
+        "TIMETURNING"
+    } else if delta_ms.abs() <= 8 {
+        "IN SYNC"
+    } else if delta_ms > 10 {
+        "CLOCK AHEAD"
+    } else {
+        "CLOCK BEHIND"
+    }
+}
+
+pub fn get_jitter_status(jitter_ms: i64) -> &'static str {
+    if jitter_ms.abs() < 10 {
+        "GOOD"
+    } else if jitter_ms.abs() < 40 {
+        "AVERAGE"
+    } else {
+        "BAD"
+    }
+}
 // This module provides the logic for handling LTC (Linear Timecode) frames and maintaining state.
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{Config, TimeturnerOffset};
     use chrono::{Local, Utc};
 
     fn get_test_frame(status: &str, h: u32, m: u32, s: u32) -> LtcFrame {
@@ -331,5 +355,35 @@ mod tests {
             2,
             "Median of even numbers should be correct"
         );
+    }
+
+    #[test]
+    fn test_get_sync_status() {
+        let mut config = Config::default();
+        assert_eq!(get_sync_status(0, &config), "IN SYNC");
+        assert_eq!(get_sync_status(8, &config), "IN SYNC");
+        assert_eq!(get_sync_status(-8, &config), "IN SYNC");
+        assert_eq!(get_sync_status(9, &config), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(10, &config), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(11, &config), "CLOCK AHEAD");
+        assert_eq!(get_sync_status(-9, &config), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(-100, &config), "CLOCK BEHIND");
+
+        // Test TIMETURNING status
+        config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0 };
+        assert_eq!(get_sync_status(0, &config), "TIMETURNING");
+        assert_eq!(get_sync_status(100, &config), "TIMETURNING");
+    }
+
+    #[test]
+    fn test_get_jitter_status() {
+        assert_eq!(get_jitter_status(5), "GOOD");
+        assert_eq!(get_jitter_status(-5), "GOOD");
+        assert_eq!(get_jitter_status(9), "GOOD");
+        assert_eq!(get_jitter_status(10), "AVERAGE");
+        assert_eq!(get_jitter_status(39), "AVERAGE");
+        assert_eq!(get_jitter_status(-39), "AVERAGE");
+        assert_eq!(get_jitter_status(40), "BAD");
+        assert_eq!(get_jitter_status(-40), "BAD");
     }
 }
