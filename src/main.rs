@@ -151,19 +151,23 @@ async fn main() {
                 });
             }
 
-            // 8️⃣ Keep main thread alive
+            // 8️⃣ Main logic loop: process frames from serial and update state
+            let loop_state = ltc_state.clone();
+            let logic_task = task::spawn_blocking(move || {
+                for frame in rx {
+                    loop_state.lock().unwrap().update(frame);
+                }
+            });
+
+            // 9️⃣ Keep main thread alive
             if args.command.is_some() {
-                // In daemon mode, wait forever.
+                // In daemon mode, wait forever. The logic_task runs in the background.
                 std::future::pending::<()>().await;
             } else {
-                // In TUI mode, block on the channel.
+                // In TUI mode, block until the logic_task finishes (e.g. serial port disconnects)
+                // This keeps the TUI running.
                 log::info!("📡 Main thread entering loop...");
-                let _ = task::spawn_blocking(move || {
-                    for _frame in rx {
-                        // no-op
-                    }
-                })
-                .await;
+                let _ = logic_task.await;
             }
         })
         .await;
