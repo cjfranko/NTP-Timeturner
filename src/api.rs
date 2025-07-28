@@ -145,6 +145,22 @@ async fn update_config(
 
     if config::save_config("config.yml", &config).is_ok() {
         log::info!("🔄 Saved config via API: {:?}", *config);
+
+        // If timeturner offset is active, trigger a sync immediately.
+        if config.timeturner_offset.is_active() {
+            let state = data.ltc_state.lock().unwrap();
+            if let Some(frame) = &state.latest {
+                log::info!("Timeturner offset is active, triggering sync...");
+                if system::trigger_sync(frame, &config).is_ok() {
+                    log::info!("Sync triggered successfully after config change.");
+                } else {
+                    log::error!("Sync failed after config change.");
+                }
+            } else {
+                log::warn!("Timeturner offset is active, but no LTC frame available to sync.");
+            }
+        }
+
         HttpResponse::Ok().json(&*config)
     } else {
         log::error!("Failed to write config.yml");
