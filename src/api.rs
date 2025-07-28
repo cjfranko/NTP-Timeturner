@@ -5,6 +5,7 @@ use chrono::{Local, Timelike};
 use get_if_addrs::get_if_addrs;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use crate::config::{self, Config};
@@ -33,6 +34,7 @@ struct ApiStatus {
 pub struct AppState {
     pub ltc_state: Arc<Mutex<LtcState>>,
     pub config: Arc<Mutex<Config>>,
+    pub log_buffer: Arc<Mutex<VecDeque<String>>>,
 }
 
 #[get("/api/status")]
@@ -117,6 +119,12 @@ async fn get_config(data: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(&*config)
 }
 
+#[get("/api/logs")]
+async fn get_logs(data: web::Data<AppState>) -> impl Responder {
+    let logs = data.log_buffer.lock().unwrap();
+    HttpResponse::Ok().json(&*logs)
+}
+
 #[post("/api/config")]
 async fn update_config(
     data: web::Data<AppState>,
@@ -126,23 +134,28 @@ async fn update_config(
     *config = req.into_inner();
 
     if config::save_config("config.yml", &config).is_ok() {
-        eprintln!("🔄 Saved config via API: {:?}", *config);
+        log::info!("🔄 Saved config via API: {:?}", *config);
         HttpResponse::Ok().json(&*config)
     } else {
-        HttpResponse::InternalServerError().json(serde_json::json!({ "status": "error", "message": "Failed to write config.yml" }))
+        log::error!("Failed to write config.yml");
+        HttpResponse::InternalServerError().json(
+            serde_json::json!({ "status": "error", "message": "Failed to write config.yml" }),
+        )
     }
 }
 
 pub async fn start_api_server(
     state: Arc<Mutex<LtcState>>,
     config: Arc<Mutex<Config>>,
+    log_buffer: Arc<Mutex<VecDeque<String>>>,
 ) -> std::io::Result<()> {
     let app_state = web::Data::new(AppState {
         ltc_state: state,
         config: config,
+        log_buffer: log_buffer,
     });
 
-    println!("🚀 Starting API server at http://0.0.0.0:8080");
+    log::info!("🚀 Starting API server at http://0.0.0.0:8080");
 
     HttpServer::new(move || {
         App::new()
@@ -151,6 +164,7 @@ pub async fn start_api_server(
             .service(manual_sync)
             .service(get_config)
             .service(update_config)
+            .service(get_logs)
             // Serve frontend static files
             .service(fs::Files::new("/", "static/").index_file("index.html"))
     })

@@ -46,7 +46,7 @@ impl Config {
             return Self::default();
         }
         serde_yaml::from_str(&contents).unwrap_or_else(|e| {
-            eprintln!("Failed to parse config, using default: {}", e);
+            log::warn!("Failed to parse config, using default: {}", e);
             Self::default()
         })
     }
@@ -82,7 +82,7 @@ pub fn watch_config(path: &str) -> Arc<Mutex<Config>> {
                     let new_cfg = Config::load(&watch_path_for_cb);
                     let mut cfg = config_for_cb.lock().unwrap();
                     *cfg = new_cfg;
-                    eprintln!("🔄 Reloaded config.yml: {:?}", *cfg);
+                    log::info!("🔄 Reloaded config.yml: {:?}", *cfg);
                 }
             }
         })

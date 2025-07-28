@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
         jitterStatus: document.getElementById('jitter-status'),
         deltaHistory: document.getElementById('delta-history'),
         interfaces: document.getElementById('interfaces'),
+        logs: document.getElementById('logs'),
     };
 
     const hwOffsetInput = document.getElementById('hw-offset');
@@ -111,6 +112,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function fetchLogs() {
+        try {
+            const response = await fetch('/api/logs');
+            if (!response.ok) throw new Error('Failed to fetch logs');
+            const logs = await response.json();
+            statusElements.logs.textContent = logs.join('\n');
+            // Auto-scroll to the bottom
+            statusElements.logs.scrollTop = statusElements.logs.scrollHeight;
+        } catch (error) {
+            console.error('Error fetching logs:', error);
+            statusElements.logs.textContent = 'Error fetching logs.';
+        }
+    }
+
     async function triggerManualSync() {
         syncMessage.textContent = 'Issuing sync command...';
         try {
@@ -134,7 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial data load
     fetchStatus();
     fetchConfig();
+    fetchLogs();
 
     // Refresh data every 2 seconds
     setInterval(fetchStatus, 2000);
+    setInterval(fetchLogs, 2000);
 });

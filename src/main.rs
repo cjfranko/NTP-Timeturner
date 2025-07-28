@@ -2,6 +2,7 @@
 
 mod api;
 mod config;
+mod logger;
 mod serial_input;
 mod sync_logic;
 mod system;
@@ -14,7 +15,6 @@ use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
 use clap::Parser;
 use daemonize::Daemonize;
-use env_logger;
 
 use std::{
     fs,
@@ -57,16 +57,18 @@ fn ensure_config() {
     if !p.exists() {
         fs::write(p, DEFAULT_CONFIG.trim())
             .expect("Failed to write default config.yml");
-        eprintln!("⚙️  Emitted default config.yml");
+        log::info!("⚙️  Emitted default config.yml");
     }
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    // This must be called before any logging statements.
+    let log_buffer = logger::setup_logger();
     let args = Args::parse();
 
     if let Some(Command::Daemon) = &args.command {
-        println!("🚀 Starting daemon...");
+        log::info!("🚀 Starting daemon...");
 
         // Create files for stdout and stderr in the current directory
         let stdout = fs::File::create("daemon.out").expect("Could not create daemon.out");
@@ -81,7 +83,7 @@ async fn main() {
         match daemonize.start() {
             Ok(_) => { /* Process is now daemonized */ }
             Err(e) => {
-                eprintln!("Error daemonizing: {}", e);
+                log::error!("Error daemonizing: {}", e);
                 return; // Exit if daemonization fails
             }
         }
@@ -116,9 +118,9 @@ async fn main() {
 
     // 5️⃣ Spawn UI or setup daemon logging
     if args.command.is_none() {
-        println!("🔧 Watching config.yml...");
-        println!("🚀 Serial thread launched");
-        println!("🖥️ UI thread launched");
+        log::info!("🔧 Watching config.yml...");
+        log::info!("🚀 Serial thread launched");
+        log::info!("🖥️ UI thread launched");
         let ui_state = ltc_state.clone();
         let config_clone = config.clone();
         let port = "/dev/ttyACM0".to_string();
@@ -126,10 +128,8 @@ async fn main() {
             start_ui(ui_state, port, config_clone);
         });
     } else {
-        // In daemon mode, we initialize env_logger.
-        // This will log to stdout, and the systemd service will capture it.
-        // The RUST_LOG env var controls the log level (e.g., RUST_LOG=info).
-        env_logger::init();
+        // In daemon mode, logging is already set up to go to stderr.
+        // The systemd service will capture it.
         log::info!("🚀 Starting TimeTurner daemon...");
     }
 
@@ -141,9 +141,12 @@ async fn main() {
             {
                 let api_state = ltc_state.clone();
                 let config_clone = config.clone();
+                let log_buffer_clone = log_buffer.clone();
                 task::spawn_local(async move {
-                    if let Err(e) = start_api_server(api_state, config_clone).await {
-                        eprintln!("API server error: {}", e);
+                    if let Err(e) =
+                        start_api_server(api_state, config_clone, log_buffer_clone).await
+                    {
+                        log::error!("API server error: {}", e);
                     }
                 });
             }
@@ -154,7 +157,7 @@ async fn main() {
                 std::future::pending::<()>().await;
             } else {
                 // In TUI mode, block on the channel.
-                println!("📡 Main thread entering loop...");
+                log::info!("📡 Main thread entering loop...");
                 let _ = task::spawn_blocking(move || {
                     for _frame in rx {
                         // no-op
