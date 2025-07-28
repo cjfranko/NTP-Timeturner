@@ -1,6 +1,6 @@
 ﻿use std::{
     io::{stdout, Write},
-    process::{self, Command},
+    process::{self},
     sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
@@ -21,108 +21,9 @@ use crossterm::{
 
 use crate::config::Config;
 use get_if_addrs::get_if_addrs;
-use crate::sync_logic::{LtcFrame, LtcState};
+use crate::sync_logic::{get_jitter_status, get_sync_status, LtcState};
+use crate::system;
 
-/// Check if Chrony is active
-pub fn ntp_service_active() -> bool {
-    if let Ok(output) = Command::new("systemctl").args(&["is-active", "chrony"]).output() {
-        output.status.success()
-            && String::from_utf8_lossy(&output.stdout).trim() == "active"
-    } else {
-        false
-    }
-}
-
-/// Toggle Chrony (not used yet)
-#[allow(dead_code)]
-fn ntp_service_toggle(start: bool) {
-    let action = if start { "start" } else { "stop" };
-    let _ = Command::new("systemctl").args(&[action, "chrony"]).status();
-}
-
-pub fn get_sync_status(delta_ms: i64, config: &Config) -> &'static str {
-    if config.timeturner_offset.is_active() {
-        "TIMETURNING"
-    } else if delta_ms.abs() <= 8 {
-        "IN SYNC"
-    } else if delta_ms > 10 {
-        "CLOCK AHEAD"
-    } else {
-        "CLOCK BEHIND"
-    }
-}
-
-pub fn get_jitter_status(jitter_ms: i64) -> &'static str {
-    if jitter_ms.abs() < 10 {
-        "GOOD"
-    } else if jitter_ms.abs() < 40 {
-        "AVERAGE"
-    } else {
-        "BAD"
-    }
-}
-
-pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
-    let today_local = Local::now().date_naive();
-    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
-    let timecode = NaiveTime::from_hms_milli_opt(frame.hours, frame.minutes, frame.seconds, ms)
-        .expect("Invalid LTC timecode");
-
-    let naive_dt = today_local.and_time(timecode);
-    let mut dt_local = Local
-        .from_local_datetime(&naive_dt)
-        .single()
-        .expect("Ambiguous or invalid local time");
-
-    // Apply timeturner offset
-    let offset = &config.timeturner_offset;
-    dt_local = dt_local
-        + ChronoDuration::hours(offset.hours)
-        + ChronoDuration::minutes(offset.minutes)
-        + ChronoDuration::seconds(offset.seconds);
-    // Frame offset needs to be converted to milliseconds
-    let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
-    dt_local = dt_local + ChronoDuration::milliseconds(frame_offset_ms);
-    #[cfg(target_os = "linux")]
-    let (ts, success) = {
-        let ts = dt_local.format("%H:%M:%S.%3f").to_string();
-        let success = Command::new("sudo")
-            .arg("date")
-            .arg("-s")
-            .arg(&ts)
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
-        (ts, success)
-    };
-
-    #[cfg(target_os = "macos")]
-    let (ts, success) = {
-        // macOS `date` command format is `mmddHHMMccyy.SS`
-        let ts = dt_local.format("%m%d%H%M%y.%S").to_string();
-        let success = Command::new("sudo")
-            .arg("date")
-            .arg(&ts)
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
-        (ts, success)
-    };
-
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    let (ts, success) = {
-        // Unsupported OS, always fail
-        let ts = dt_local.format("%H:%M:%S.%3f").to_string();
-        eprintln!("Unsupported OS for time synchronization");
-        (ts, false)
-    };
-
-    if success {
-        Ok(ts)
-    } else {
-        Err(())
-    }
-}
 
 pub fn start_ui(
     state: Arc<Mutex<LtcState>>,
@@ -145,7 +46,7 @@ pub fn start_ui(
         let hw_offset_ms = cfg.hardware_offset_ms;
 
         // 2️⃣ Chrony + interfaces
-        let ntp_active = ntp_service_active();
+        let ntp_active = system::ntp_service_active();
         let interfaces: Vec<String> = get_if_addrs()
             .unwrap_or_default()
             .into_iter()
@@ -226,7 +127,7 @@ pub fn start_ui(
             if let Some(start) = out_of_sync_since {
                 if start.elapsed() >= Duration::from_secs(5) {
                     if let Some(frame) = &state.lock().unwrap().latest {
-                        let entry = match trigger_sync(frame, &cfg) {
+                        let entry = match system::trigger_sync(frame, &cfg) {
                             Ok(ts) => format!("🔄 Auto‑synced to LTC: {}", ts),
                             Err(_) => "❌ Auto‑sync failed".into(),
                         };
@@ -361,7 +262,7 @@ pub fn start_ui(
                     }
                     KeyCode::Char(c) if c.eq_ignore_ascii_case(&'s') => {
                         if let Some(frame) = &state.lock().unwrap().latest {
-                            let entry = match trigger_sync(frame, &cfg) {
+                            let entry = match system::trigger_sync(frame, &cfg) {
                                 Ok(ts) => format!("✔ Synced exactly to LTC: {}", ts),
                                 Err(_) => "❌ date cmd failed".into(),
                             };
@@ -380,37 +281,8 @@ pub fn start_ui(
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
-
+    #[allow(unused_imports)]
     use crate::config::TimeturnerOffset;
-
-    #[test]
-    fn test_get_sync_status() {
-        let mut config = Config::default();
-        assert_eq!(get_sync_status(0, &config), "IN SYNC");
-        assert_eq!(get_sync_status(8, &config), "IN SYNC");
-        assert_eq!(get_sync_status(-8, &config), "IN SYNC");
-        assert_eq!(get_sync_status(9, &config), "CLOCK BEHIND");
-        assert_eq!(get_sync_status(10, &config), "CLOCK BEHIND");
-        assert_eq!(get_sync_status(11, &config), "CLOCK AHEAD");
-        assert_eq!(get_sync_status(-9, &config), "CLOCK BEHIND");
-        assert_eq!(get_sync_status(-100, &config), "CLOCK BEHIND");
-
-        // Test TIMETURNING status
-        config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0 };
-        assert_eq!(get_sync_status(0, &config), "TIMETURNING");
-        assert_eq!(get_sync_status(100, &config), "TIMETURNING");
-    }
-
-    #[test]
-    fn test_get_jitter_status() {
-        assert_eq!(get_jitter_status(5), "GOOD");
-        assert_eq!(get_jitter_status(-5), "GOOD");
-        assert_eq!(get_jitter_status(9), "GOOD");
-        assert_eq!(get_jitter_status(10), "AVERAGE");
-        assert_eq!(get_jitter_status(39), "AVERAGE");
-        assert_eq!(get_jitter_status(-39), "AVERAGE");
-        assert_eq!(get_jitter_status(40), "BAD");
-        assert_eq!(get_jitter_status(-40), "BAD");
-    }
 }
