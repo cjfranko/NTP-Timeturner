@@ -9,7 +9,6 @@ use std::collections::VecDeque;
 
 use chrono::{
     DateTime, Local, Timelike, Utc,
-    NaiveTime, TimeZone, Duration as ChronoDuration,
 };
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
