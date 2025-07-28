@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         deltaMs: document.getElementById('delta-ms'),
         deltaFrames: document.getElementById('delta-frames'),
         jitterStatus: document.getElementById('jitter-status'),
+        deltaHistory: document.getElementById('delta-history'),
         interfaces: document.getElementById('interfaces'),
     };
 
@@ -42,6 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         statusElements.jitterStatus.textContent = data.jitter_status;
         statusElements.jitterStatus.className = data.jitter_status.toLowerCase();
+
+        statusElements.deltaHistory.textContent = data.clock_delta_history.join(', ');
 
         statusElements.interfaces.innerHTML = '';
         if (data.interfaces.length > 0) {

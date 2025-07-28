@@ -26,6 +26,7 @@ struct ApiStatus {
     ntp_active: bool,
     interfaces: Vec<String>,
     hardware_offset_ms: i64,
+    clock_delta_history: Vec<i64>,
 }
 
 // AppState to hold shared data
@@ -76,6 +77,8 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         .map(|ifa| ifa.ip().to_string())
         .collect();
 
+    let clock_delta_history: Vec<i64> = state.clock_delta_history.iter().cloned().collect();
+
     HttpResponse::Ok().json(ApiStatus {
         ltc_status,
         ltc_timecode,
@@ -89,6 +92,7 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         ntp_active,
         interfaces,
         hardware_offset_ms: hw_offset_ms,
+        clock_delta_history,
     })
 }
 
@@ -215,6 +219,7 @@ mod tests {
         assert_eq!(resp.ltc_timecode, "01:02:03:04");
         assert_eq!(resp.frame_rate, "25.00fps");
         assert_eq!(resp.hardware_offset_ms, 10);
+        assert_eq!(resp.clock_delta_history, vec![4, 5, 6]);
     }
 
     #[actix_web::test]
