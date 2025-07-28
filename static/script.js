@@ -25,6 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualSyncButton = document.getElementById('manual-sync');
     const syncMessage = document.getElementById('sync-message');
 
+    const nudgeDownButton = document.getElementById('nudge-down');
+    const nudgeUpButton = document.getElementById('nudge-up');
+    const nudgeValueInput = document.getElementById('nudge-value');
+    const nudgeMessage = document.getElementById('nudge-message');
+
     function updateStatus(data) {
         statusElements.ltcStatus.textContent = data.ltc_status;
         statusElements.ltcTimecode.textContent = data.ltc_timecode;
@@ -79,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
             offsetInputs.m.value = data.timeturnerOffset.minutes;
             offsetInputs.s.value = data.timeturnerOffset.seconds;
             offsetInputs.f.value = data.timeturnerOffset.frames;
+            nudgeValueInput.value = data.defaultNudgeMs;
         } catch (error) {
             console.error('Error fetching config:', error);
         }
@@ -87,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveConfig() {
         const config = {
             hardwareOffsetMs: parseInt(hwOffsetInput.value, 10) || 0,
+            defaultNudgeMs: parseInt(nudgeValueInput.value, 10) || 0,
             timeturnerOffset: {
                 hours:   parseInt(offsetInputs.h.value, 10) || 0,
                 minutes: parseInt(offsetInputs.m.value, 10) || 0,
@@ -140,8 +147,37 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { syncMessage.textContent = ''; }, 5000);
     }
 
+    async function nudgeClock(ms) {
+        nudgeMessage.textContent = 'Nudging clock...';
+        try {
+            const response = await fetch('/api/nudge_clock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ microseconds: ms * 1000 }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                nudgeMessage.textContent = `Success: ${data.message}`;
+            } else {
+                nudgeMessage.textContent = `Error: ${data.message}`;
+            }
+        } catch (error) {
+            console.error('Error nudging clock:', error);
+            nudgeMessage.textContent = 'Failed to send nudge command.';
+        }
+        setTimeout(() => { nudgeMessage.textContent = ''; }, 3000);
+    }
+
     saveConfigButton.addEventListener('click', saveConfig);
     manualSyncButton.addEventListener('click', triggerManualSync);
+    nudgeDownButton.addEventListener('click', () => {
+        const ms = parseInt(nudgeValueInput.value, 10) || 0;
+        nudgeClock(-ms);
+    });
+    nudgeUpButton.addEventListener('click', () => {
+        const ms = parseInt(nudgeValueInput.value, 10) || 0;
+        nudgeClock(ms);
+    });
 
     // Initial data load
     fetchStatus();

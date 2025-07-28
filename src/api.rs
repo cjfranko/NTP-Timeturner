@@ -59,7 +59,7 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         now_local.timestamp_subsec_millis(),
     );
 
-    let avg_delta = state.average_clock_delta();
+    let avg_delta = state.get_ewma_clock_delta();
     let mut delta_frames = 0;
     if let Some(frame) = &state.latest {
         let frame_ms = 1000.0 / frame.frame_rate;
@@ -121,6 +121,20 @@ async fn get_logs(data: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(&*logs)
 }
 
+#[derive(Deserialize)]
+struct NudgeRequest {
+    microseconds: i64,
+}
+
+#[post("/api/nudge_clock")]
+async fn nudge_clock(req: web::Json<NudgeRequest>) -> impl Responder {
+    if system::nudge_clock(req.microseconds).is_ok() {
+        HttpResponse::Ok().json(serde_json::json!({ "status": "success", "message": "Clock nudge command issued." }))
+    } else {
+        HttpResponse::InternalServerError().json(serde_json::json!({ "status": "error", "message": "Clock nudge command failed." }))
+    }
+}
+
 #[post("/api/config")]
 async fn update_config(
     data: web::Data<AppState>,
@@ -161,6 +175,7 @@ pub async fn start_api_server(
             .service(get_config)
             .service(update_config)
             .service(get_logs)
+            .service(nudge_clock)
             // Serve frontend static files
             .service(fs::Files::new("/", "static/").index_file("index.html"))
     })
@@ -194,7 +209,7 @@ mod tests {
             lock_count: 10,
             free_count: 1,
             offset_history: VecDeque::from(vec![1, 2, 3]),
-            clock_delta_history: VecDeque::from(vec![4, 5, 6]),
+            ewma_clock_delta: Some(5.0),
             last_match_status: "IN SYNC".to_string(),
             last_match_check: Utc::now().timestamp(),
         }

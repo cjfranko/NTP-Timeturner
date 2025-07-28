@@ -104,6 +104,33 @@ pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
     }
 }
 
+pub fn nudge_clock(microseconds: i64) -> Result<(), ()> {
+    #[cfg(target_os = "linux")]
+    {
+        let success = Command::new("sudo")
+            .arg("adjtimex")
+            .arg("--singleshot")
+            .arg(microseconds.to_string())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+
+        if success {
+            log::info!("Nudged clock by {} us", microseconds);
+            Ok(())
+        } else {
+            log::error!("Failed to nudge clock with adjtimex");
+            Err(())
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = microseconds;
+        log::warn!("Clock nudging is only supported on Linux.");
+        Err(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,5 +205,11 @@ mod tests {
         assert_eq!(target_time.minute(), 15);
         assert_eq!(target_time.second(), 20);
         assert_eq!(target_time.nanosecond(), 0);
+    }
+
+    #[test]
+    fn test_nudge_clock_on_non_linux() {
+        #[cfg(not(target_os = "linux"))]
+        assert!(nudge_clock(1000).is_err());
     }
 }

@@ -13,6 +13,7 @@ use crate::config::watch_config;
 use crate::serial_input::start_serial_thread;
 use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
+use chrono::TimeZone;
 use clap::Parser;
 use daemonize::Daemonize;
 
@@ -41,6 +42,9 @@ enum Command {
 const DEFAULT_CONFIG: &str = r#"
 # Hardware offset in milliseconds for correcting capture latency.
 hardwareOffsetMs: 20
+
+# Default nudge in milliseconds for adjtimex control.
+defaultNudgeMs: 2
 
 # Time-turning offsets. All values are added to the incoming LTC time.
 # These can be positive or negative.
@@ -153,9 +157,22 @@ async fn main() {
 
             // 8️⃣ Main logic loop: process frames from serial and update state
             let loop_state = ltc_state.clone();
+            let loop_config = config.clone();
             let logic_task = task::spawn_blocking(move || {
                 for frame in rx {
-                    loop_state.lock().unwrap().update(frame);
+                    let mut state = loop_state.lock().unwrap();
+                    let config = loop_config.lock().unwrap();
+
+                    // Only calculate delta for LOCK frames
+                    if frame.status == "LOCK" {
+                        let target_time = system::calculate_target_time(&frame, &config);
+                        let arrival_time_local: chrono::DateTime<chrono::Local> =
+                            frame.timestamp.with_timezone(&chrono::Local);
+                        let delta = arrival_time_local.signed_duration_since(target_time);
+                        state.record_and_update_ewma_clock_delta(delta.num_milliseconds());
+                    }
+
+                    state.update(frame);
                 }
             });
 
