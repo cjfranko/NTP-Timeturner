@@ -13,7 +13,6 @@ use crate::config::watch_config;
 use crate::serial_input::start_serial_thread;
 use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
-use chrono::TimeZone;
 use clap::Parser;
 use daemonize::Daemonize;
 

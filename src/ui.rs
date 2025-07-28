@@ -54,7 +54,7 @@ pub fn start_ui(
             .map(|ifa| ifa.ip().to_string())
             .collect();
 
-        // 3️⃣ jitter + Δ
+        // 3️⃣ jitter
         {
             let mut st = state.lock().unwrap();
             if let Some(frame) = st.latest.clone() {
@@ -64,33 +64,6 @@ pub fn start_ui(
                     let raw = (now_utc - frame.timestamp).num_milliseconds();
                     let measured = raw - hw_offset_ms;
                     st.record_offset(measured);
-
-                    // Δ = system clock - LTC timecode (use LOCAL time, with offset)
-                    let today_local = Local::now().date_naive();
-                    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
-                    let tc_naive = NaiveTime::from_hms_milli_opt(
-                        frame.hours, frame.minutes, frame.seconds, ms,
-                    ).expect("Invalid LTC timecode");
-                    let naive_dt_local = today_local.and_time(tc_naive);
-                    let mut dt_local = Local
-                        .from_local_datetime(&naive_dt_local)
-                        .single()
-                        .expect("Invalid local time");
-
-                    // Apply timeturner offset before calculating delta
-                    let offset = &cfg.timeturner_offset;
-                    dt_local = dt_local
-                        + ChronoDuration::hours(offset.hours)
-                        + ChronoDuration::minutes(offset.minutes)
-                        + ChronoDuration::seconds(offset.seconds);
-                    let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
-                    dt_local = dt_local + ChronoDuration::milliseconds(frame_offset_ms);
-
-                    let delta_ms = (Local::now() - dt_local).num_milliseconds();
-                    st.record_clock_delta(delta_ms);
-                } else {
-                    st.clear_offsets();
-                    st.clear_clock_deltas();
                 }
             }
         }
@@ -103,7 +76,7 @@ pub fn start_ui(
                 st.average_frames(),
                 st.timecode_match().to_string(),
                 st.lock_ratio(),
-                st.average_clock_delta(),
+                st.get_ewma_clock_delta(),
             )
         };
 

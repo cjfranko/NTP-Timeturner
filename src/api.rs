@@ -220,11 +220,15 @@ mod tests {
         let ltc_state = Arc::new(Mutex::new(get_test_ltc_state()));
         let config = Arc::new(Mutex::new(Config {
             hardware_offset_ms: 10,
-            timeturner_offset: TimeturnerOffset {
-                hours: 0, minutes: 0, seconds: 0, frames: 0
-            }
+            timeturner_offset: TimeturnerOffset::default(),
+            default_nudge_ms: 2,
         }));
-        web::Data::new(AppState { ltc_state, config })
+        let log_buffer = Arc::new(Mutex::new(VecDeque::new()));
+        web::Data::new(AppState {
+            ltc_state,
+            config,
+            log_buffer,
+        })
     }
 
     #[actix_web::test]
@@ -282,6 +286,7 @@ mod tests {
 
         let new_config_json = serde_json::json!({
             "hardwareOffsetMs": 55,
+            "defaultNudgeMs": 2,
             "timeturnerOffset": { "hours": 1, "minutes": 2, "seconds": 3, "frames": 4 }
         });
 
