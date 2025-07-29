@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const hwOffsetInput = document.getElementById('hw-offset');
+    const autoSyncCheckbox = document.getElementById('auto-sync-enabled');
     const offsetInputs = {
         h: document.getElementById('offset-h'),
         m: document.getElementById('offset-m'),
@@ -81,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Failed to fetch config');
             const data = await response.json();
             hwOffsetInput.value = data.hardwareOffsetMs;
+            autoSyncCheckbox.checked = data.autoSyncEnabled;
             offsetInputs.h.value = data.timeturnerOffset.hours;
             offsetInputs.m.value = data.timeturnerOffset.minutes;
             offsetInputs.s.value = data.timeturnerOffset.seconds;
@@ -95,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveConfig() {
         const config = {
             hardwareOffsetMs: parseInt(hwOffsetInput.value, 10) || 0,
+            autoSyncEnabled: autoSyncCheckbox.checked,
             defaultNudgeMs: parseInt(nudgeValueInput.value, 10) || 0,
             timeturnerOffset: {
                 hours:   parseInt(offsetInputs.h.value, 10) || 0,

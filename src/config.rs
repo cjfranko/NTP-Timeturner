@@ -41,6 +41,8 @@ pub struct Config {
     pub timeturner_offset: TimeturnerOffset,
     #[serde(default = "default_nudge_ms")]
     pub default_nudge_ms: i64,
+    #[serde(default)]
+    pub auto_sync_enabled: bool,
 }
 
 fn default_nudge_ms() -> i64 {
@@ -70,6 +72,7 @@ impl Default for Config {
             hardware_offset_ms: 0,
             timeturner_offset: TimeturnerOffset::default(),
             default_nudge_ms: default_nudge_ms(),
+            auto_sync_enabled: false,
         }
     }
 }

@@ -238,6 +238,7 @@ mod tests {
             hardware_offset_ms: 10,
             timeturner_offset: TimeturnerOffset::default(),
             default_nudge_ms: 2,
+            auto_sync_enabled: false,
         }));
         let log_buffer = Arc::new(Mutex::new(VecDeque::new()));
         web::Data::new(AppState {
@@ -303,6 +304,7 @@ mod tests {
         let new_config_json = serde_json::json!({
             "hardwareOffsetMs": 55,
             "defaultNudgeMs": 2,
+            "autoSyncEnabled": true,
             "timeturnerOffset": { "hours": 1, "minutes": 2, "seconds": 3, "frames": 4, "milliseconds": 5 }
         });
 
@@ -314,10 +316,12 @@ mod tests {
         let resp: Config = test::call_and_read_body_json(&app, req).await;
 
         assert_eq!(resp.hardware_offset_ms, 55);
+        assert_eq!(resp.auto_sync_enabled, true);
         assert_eq!(resp.timeturner_offset.hours, 1);
         assert_eq!(resp.timeturner_offset.milliseconds, 5);
         let final_config = app_state.config.lock().unwrap();
         assert_eq!(final_config.hardware_offset_ms, 55);
+        assert_eq!(final_config.auto_sync_enabled, true);
         assert_eq!(final_config.timeturner_offset.hours, 1);
         assert_eq!(final_config.timeturner_offset.milliseconds, 5);
 
@@ -325,6 +329,7 @@ mod tests {
         assert!(fs::metadata(config_path).is_ok());
         let contents = fs::read_to_string(config_path).unwrap();
         assert!(contents.contains("hardwareOffsetMs: 55"));
+        assert!(contents.contains("autoSyncEnabled: true"));
         assert!(contents.contains("hours: 1"));
         assert!(contents.contains("milliseconds: 5"));
 

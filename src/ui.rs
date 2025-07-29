@@ -94,28 +94,7 @@ pub fn start_ui(
         // 6️⃣ sync status wording
         let sync_status = get_sync_status(cached_delta_ms, &cfg);
 
-        // 7️⃣ auto‑sync (same as manual but delayed)
-        if sync_status != "IN SYNC" && sync_status != "TIMETURNING" {
-            if let Some(start) = out_of_sync_since {
-                if start.elapsed() >= Duration::from_secs(5) {
-                    if let Some(frame) = &state.lock().unwrap().latest {
-                        let entry = match system::trigger_sync(frame, &cfg) {
-                            Ok(ts) => format!("🔄 Auto‑synced to LTC: {}", ts),
-                            Err(_) => "❌ Auto‑sync failed".into(),
-                        };
-                        if logs.len() == 10 { logs.pop_front(); }
-                        logs.push_back(entry);
-                    }
-                    out_of_sync_since = None;
-                }
-            } else {
-                out_of_sync_since = Some(Instant::now());
-            }
-        } else {
-            out_of_sync_since = None;
-        }
-
-        // 8️⃣ header & LTC metrics display
+        // 7️⃣ header & LTC metrics display
         {
             let st = state.lock().unwrap();
             let opt = st.latest.as_ref();

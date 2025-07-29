@@ -42,6 +42,11 @@ const DEFAULT_CONFIG: &str = r#"
 # Hardware offset in milliseconds for correcting capture latency.
 hardwareOffsetMs: 20
 
+# Enable automatic clock synchronization.
+# When enabled, the system will perform an initial full sync, then periodically
+# nudge the clock to keep it aligned with the LTC source.
+autoSyncEnabled: false
+
 # Time-turning offsets. All values are added to the incoming LTC time.
 # These can be positive or negative.
 timeturnerOffset:
@@ -133,11 +138,79 @@ async fn main() {
         log::info!("🚀 Starting TimeTurner daemon...");
     }
 
-    // 6️⃣ Set up a LocalSet for the API server and main loop
+    // 6️⃣ Spawn the auto-sync thread
+    {
+        let sync_state = ltc_state.clone();
+        let sync_config = config.clone();
+        thread::spawn(move || {
+            // Wait for the first LTC frame to arrive
+            loop {
+                if sync_state.lock().unwrap().latest.is_some() {
+                    log::info!("Auto-sync: Initial LTC frame detected.");
+                    break;
+                }
+                thread::sleep(std::time::Duration::from_secs(1));
+            }
+
+            // Initial sync
+            {
+                let state = sync_state.lock().unwrap();
+                let config = sync_config.lock().unwrap();
+                if config.auto_sync_enabled {
+                    if let Some(frame) = &state.latest {
+                        log::info!("Auto-sync: Performing initial full sync.");
+                        if system::trigger_sync(frame, &config).is_ok() {
+                            log::info!("Auto-sync: Initial sync successful.");
+                        } else {
+                            log::error!("Auto-sync: Initial sync failed.");
+                        }
+                    }
+                }
+            }
+
+            thread::sleep(std::time::Duration::from_secs(10));
+
+            // Main auto-sync loop
+            loop {
+                {
+                    let state = sync_state.lock().unwrap();
+                    let config = sync_config.lock().unwrap();
+
+                    if config.auto_sync_enabled && state.latest.is_some() {
+                        let delta = state.get_ewma_clock_delta();
+                        let frame = state.latest.as_ref().unwrap();
+
+                        if delta.abs() > 40 {
+                            log::info!("Auto-sync: Delta > 40ms ({}ms), performing full sync.", delta);
+                            if system::trigger_sync(frame, &config).is_ok() {
+                                log::info!("Auto-sync: Full sync successful.");
+                            } else {
+                                log::error!("Auto-sync: Full sync failed.");
+                            }
+                        } else if delta.abs() >= 1 {
+                            // nudge_clock takes microseconds. A positive delta means clock is
+                            // ahead, so we need a negative nudge.
+                            let nudge_us = -delta * 1000;
+                            log::info!("Auto-sync: Delta is {}ms, nudging clock by {}us.", delta, nudge_us);
+                            if system::nudge_clock(nudge_us).is_ok() {
+                                log::info!("Auto-sync: Clock nudge successful.");
+                            } else {
+                                log::error!("Auto-sync: Clock nudge failed.");
+                            }
+                        }
+                    }
+                } // locks released here
+
+                thread::sleep(std::time::Duration::from_secs(10));
+            }
+        });
+    }
+
+    // 7️⃣ Set up a LocalSet for the API server and main loop
     let local = LocalSet::new();
     local
         .run_until(async move {
-            // 7️⃣ Spawn the API server thread
+            // 8️⃣ Spawn the API server thread
             {
                 let api_state = ltc_state.clone();
                 let config_clone = config.clone();
@@ -151,7 +224,7 @@ async fn main() {
                 });
             }
 
-            // 8️⃣ Main logic loop: process frames from serial and update state
+            // 9️⃣ Main logic loop: process frames from serial and update state
             let loop_state = ltc_state.clone();
             let loop_config = config.clone();
             let logic_task = task::spawn_blocking(move || {
@@ -172,7 +245,7 @@ async fn main() {
                 }
             });
 
-            // 9️⃣ Keep main thread alive
+            // 1️⃣0️⃣ Keep main thread alive
             if args.command.is_some() {
                 // In daemon mode, wait forever. The logic_task runs in the background.
                 std::future::pending::<()>().await;
