@@ -1,5 +1,13 @@
 # Hardware offset in milliseconds for correcting capture latency.
-hardwareOffsetMs: 20
+hardwareOffsetMs: 55
+
+# Enable automatic clock synchronization.
+# When enabled, the system will perform an initial full sync, then periodically
+# nudge the clock to keep it aligned with the LTC source.
+autoSyncEnabled: true
+
+# Default nudge in milliseconds for adjtimex control.
+defaultNudgeMs: 2
 
 # Time-turning offsets. All values are added to the incoming LTC time.
 # These can be positive or negative.
@@ -9,4 +17,3 @@ timeturnerOffset:
   seconds: 3
   frames: 4
   milliseconds: 5
-defaultNudgeMs: 2
