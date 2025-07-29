@@ -160,6 +160,8 @@ impl LtcState {
 pub fn get_sync_status(delta_ms: i64, config: &Config) -> &'static str {
     if config.timeturner_offset.is_active() {
         "TIMETURNING"
+    } else if config.auto_sync_enabled {
+        "TIME LOCK ACTIVE"
     } else if delta_ms.abs() <= 8 {
         "IN SYNC"
     } else if delta_ms > 10 {
@@ -347,7 +349,11 @@ mod tests {
         assert_eq!(get_sync_status(-9, &config), "CLOCK BEHIND");
         assert_eq!(get_sync_status(-100, &config), "CLOCK BEHIND");
 
-        // Test TIMETURNING status
+        // Test auto-sync status
+        config.auto_sync_enabled = true;
+        assert_eq!(get_sync_status(0, &config), "TIME LOCK ACTIVE");
+
+        // Test TIMETURNING status takes precedence
         config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0, milliseconds: 0 };
         assert_eq!(get_sync_status(0, &config), "TIMETURNING");
         assert_eq!(get_sync_status(100, &config), "TIMETURNING");
