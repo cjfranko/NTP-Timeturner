@@ -50,16 +50,29 @@
                     <input type="number" id="hw-offset" name="hw-offset">
                 </div>
                 <div class="control-group">
-                    <label>Timeturner Offset: HH:MM:SS:f.ms</label>
-                    <input type="number" id="offset-h" placeholder="H">
-                    <label>:</label>
-                    <input type="number" id="offset-m" placeholder="M">
-                    <label>:</label>
-                    <input type="number" id="offset-s" placeholder="S">
-                    <label>.</label>
-                    <input type="number" id="offset-f" placeholder="F">
-                    <label>.</label>
-                    <input type="number" id="offset-ms" placeholder="ms">
+                    <label>Timeturner Offset</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start;">
+                        <div style="display: flex; flex-direction: column;">
+                            <label for="offset-h">Hours</label>
+                            <input type="number" id="offset-h" style="width: 60px;">
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <label for="offset-m">Minutes</label>
+                            <input type="number" id="offset-m" style="width: 60px;">
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <label for="offset-s">Seconds</label>
+                            <input type="number" id="offset-s" style="width: 60px;">
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <label for="offset-f">Frames</label>
+                            <input type="number" id="offset-f" style="width: 60px;">
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <label for="offset-ms">Milliseconds</label>
+                            <input type="number" id="offset-ms" style="width: 60px;">
+                        </div>
+                    </div>
                 </div>
                  <div class="control-group">
                     <button id="save-config">Save Config</button>
