@@ -196,18 +196,35 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    /// RAII guard to ensure config file is cleaned up after test.
-    struct ConfigGuard;
+    /// RAII guard to manage config file during tests.
+    /// It saves the original content of `config.yml` if it exists,
+    /// and restores it when the guard goes out of scope.
+    /// If the file didn't exist, it's removed.
+    struct ConfigGuard {
+        original_content: Option<String>,
+    }
+
+    impl ConfigGuard {
+        fn new() -> Self {
+            Self {
+                original_content: fs::read_to_string("config.yml").ok(),
+            }
+        }
+    }
 
     impl Drop for ConfigGuard {
         fn drop(&mut self) {
-            let _ = fs::remove_file("config.yml");
+            if let Some(content) = &self.original_content {
+                fs::write("config.yml", content).expect("Failed to restore config.yml");
+            } else {
+                let _ = fs::remove_file("config.yml");
+            }
         }
     }
 
     #[test]
     fn test_ensure_config() {
-        let _guard = ConfigGuard; // Cleanup when _guard goes out of scope.
+        let _guard = ConfigGuard::new(); // Cleanup when _guard goes out of scope.
 
         // --- Test 1: File creation ---
         // Pre-condition: config.yml does not exist.
