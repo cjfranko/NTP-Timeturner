@@ -42,9 +42,6 @@ const DEFAULT_CONFIG: &str = r#"
 # Hardware offset in milliseconds for correcting capture latency.
 hardwareOffsetMs: 20
 
-# Default nudge in milliseconds for adjtimex control.
-defaultNudgeMs: 2
-
 # Time-turning offsets. All values are added to the incoming LTC time.
 # These can be positive or negative.
 timeturnerOffset:
@@ -52,7 +49,6 @@ timeturnerOffset:
   minutes: 0
   seconds: 0
   frames: 0
-  milliseconds: 0
 "#;
 
 /// If no `config.yml` exists alongside the binary, write out the default.
