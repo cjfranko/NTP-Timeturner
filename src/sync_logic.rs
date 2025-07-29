@@ -348,7 +348,7 @@ mod tests {
         assert_eq!(get_sync_status(-100, &config), "CLOCK BEHIND");
 
         // Test TIMETURNING status
-        config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0 };
+        config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0, milliseconds: 0 };
         assert_eq!(get_sync_status(0, &config), "TIMETURNING");
         assert_eq!(get_sync_status(100, &config), "TIMETURNING");
     }
