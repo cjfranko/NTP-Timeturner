@@ -52,6 +52,7 @@ timeturnerOffset:
   minutes: 0
   seconds: 0
   frames: 0
+  milliseconds: 0
 "#;
 
 /// If no `config.yml` exists alongside the binary, write out the default.

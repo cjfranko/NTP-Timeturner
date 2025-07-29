@@ -19,11 +19,17 @@ pub struct TimeturnerOffset {
     pub minutes: i64,
     pub seconds: i64,
     pub frames: i64,
+    #[serde(default)]
+    pub milliseconds: i64,
 }
 
 impl TimeturnerOffset {
     pub fn is_active(&self) -> bool {
-        self.hours != 0 || self.minutes != 0 || self.seconds != 0 || self.frames != 0
+        self.hours != 0
+            || self.minutes != 0
+            || self.seconds != 0
+            || self.frames != 0
+            || self.milliseconds != 0
     }
 }
 

@@ -303,7 +303,7 @@ mod tests {
         let new_config_json = serde_json::json!({
             "hardwareOffsetMs": 55,
             "defaultNudgeMs": 2,
-            "timeturnerOffset": { "hours": 1, "minutes": 2, "seconds": 3, "frames": 4 }
+            "timeturnerOffset": { "hours": 1, "minutes": 2, "seconds": 3, "frames": 4, "milliseconds": 5 }
         });
 
         let req = test::TestRequest::post()
@@ -315,15 +315,18 @@ mod tests {
 
         assert_eq!(resp.hardware_offset_ms, 55);
         assert_eq!(resp.timeturner_offset.hours, 1);
+        assert_eq!(resp.timeturner_offset.milliseconds, 5);
         let final_config = app_state.config.lock().unwrap();
         assert_eq!(final_config.hardware_offset_ms, 55);
         assert_eq!(final_config.timeturner_offset.hours, 1);
+        assert_eq!(final_config.timeturner_offset.milliseconds, 5);
 
         // Test that the file was written
         assert!(fs::metadata(config_path).is_ok());
         let contents = fs::read_to_string(config_path).unwrap();
         assert!(contents.contains("hardwareOffsetMs: 55"));
         assert!(contents.contains("hours: 1"));
+        assert!(contents.contains("milliseconds: 5"));
 
         // Cleanup
         let _ = fs::remove_file(config_path);

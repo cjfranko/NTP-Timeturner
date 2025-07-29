@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         m: document.getElementById('offset-m'),
         s: document.getElementById('offset-s'),
         f: document.getElementById('offset-f'),
+        ms: document.getElementById('offset-ms'),
     };
     const saveConfigButton = document.getElementById('save-config');
     const manualSyncButton = document.getElementById('manual-sync');
@@ -84,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
             offsetInputs.m.value = data.timeturnerOffset.minutes;
             offsetInputs.s.value = data.timeturnerOffset.seconds;
             offsetInputs.f.value = data.timeturnerOffset.frames;
+            offsetInputs.ms.value = data.timeturnerOffset.milliseconds || 0;
             nudgeValueInput.value = data.defaultNudgeMs;
         } catch (error) {
             console.error('Error fetching config:', error);
@@ -99,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 minutes: parseInt(offsetInputs.m.value, 10) || 0,
                 seconds: parseInt(offsetInputs.s.value, 10) || 0,
                 frames:  parseInt(offsetInputs.f.value, 10) || 0,
+                milliseconds: parseInt(offsetInputs.ms.value, 10) || 0,
             }
         };
 
