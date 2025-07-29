@@ -47,6 +47,9 @@ hardwareOffsetMs: 20
 # nudge the clock to keep it aligned with the LTC source.
 autoSyncEnabled: false
 
+# Default nudge in milliseconds for adjtimex control.
+defaultNudgeMs: 2
+
 # Time-turning offsets. All values are added to the incoming LTC time.
 # These can be positive or negative.
 timeturnerOffset:
@@ -54,6 +57,7 @@ timeturnerOffset:
   minutes: 0
   seconds: 0
   frames: 0
+  milliseconds: 0
 "#;
 
 /// If no `config.yml` exists alongside the binary, write out the default.
