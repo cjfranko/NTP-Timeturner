@@ -34,7 +34,6 @@ pub fn start_ui(
     terminal::enable_raw_mode().unwrap();
 
     let mut logs: VecDeque<String> = VecDeque::with_capacity(10);
-    let mut out_of_sync_since: Option<Instant> = None;
     let mut last_delta_update = Instant::now() - Duration::from_secs(1);
     let mut cached_delta_ms: i64 = 0;
     let mut cached_delta_frames: i64 = 0;
