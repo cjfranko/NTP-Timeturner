@@ -2,6 +2,7 @@
 
 mod api;
 mod config;
+mod logger;
 mod serial_input;
 mod sync_logic;
 mod system;
@@ -14,7 +15,6 @@ use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
 use clap::Parser;
 use daemonize::Daemonize;
-use env_logger;
 
 use std::{
     fs,
@@ -42,6 +42,14 @@ const DEFAULT_CONFIG: &str = r#"
 # Hardware offset in milliseconds for correcting capture latency.
 hardwareOffsetMs: 20
 
+# Enable automatic clock synchronization.
+# When enabled, the system will perform an initial full sync, then periodically
+# nudge the clock to keep it aligned with the LTC source.
+autoSyncEnabled: false
+
+# Default nudge in milliseconds for adjtimex control.
+defaultNudgeMs: 2
+
 # Time-turning offsets. All values are added to the incoming LTC time.
 # These can be positive or negative.
 timeturnerOffset:
@@ -49,6 +57,7 @@ timeturnerOffset:
   minutes: 0
   seconds: 0
   frames: 0
+  milliseconds: 0
 "#;
 
 /// If no `config.yml` exists alongside the binary, write out the default.
@@ -57,16 +66,18 @@ fn ensure_config() {
     if !p.exists() {
         fs::write(p, DEFAULT_CONFIG.trim())
             .expect("Failed to write default config.yml");
-        eprintln!("⚙️  Emitted default config.yml");
+        log::info!("⚙️  Emitted default config.yml");
     }
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    // This must be called before any logging statements.
+    let log_buffer = logger::setup_logger();
     let args = Args::parse();
 
     if let Some(Command::Daemon) = &args.command {
-        println!("🚀 Starting daemon...");
+        log::info!("🚀 Starting daemon...");
 
         // Create files for stdout and stderr in the current directory
         let stdout = fs::File::create("daemon.out").expect("Could not create daemon.out");
@@ -81,7 +92,7 @@ async fn main() {
         match daemonize.start() {
             Ok(_) => { /* Process is now daemonized */ }
             Err(e) => {
-                eprintln!("Error daemonizing: {}", e);
+                log::error!("Error daemonizing: {}", e);
                 return; // Exit if daemonization fails
             }
         }
@@ -116,9 +127,9 @@ async fn main() {
 
     // 5️⃣ Spawn UI or setup daemon logging
     if args.command.is_none() {
-        println!("🔧 Watching config.yml...");
-        println!("🚀 Serial thread launched");
-        println!("🖥️ UI thread launched");
+        log::info!("🔧 Watching config.yml...");
+        log::info!("🚀 Serial thread launched");
+        log::info!("🖥️ UI thread launched");
         let ui_state = ltc_state.clone();
         let config_clone = config.clone();
         let port = "/dev/ttyACM0".to_string();
@@ -126,41 +137,127 @@ async fn main() {
             start_ui(ui_state, port, config_clone);
         });
     } else {
-        // In daemon mode, we initialize env_logger.
-        // This will log to stdout, and the systemd service will capture it.
-        // The RUST_LOG env var controls the log level (e.g., RUST_LOG=info).
-        env_logger::init();
+        // In daemon mode, logging is already set up to go to stderr.
+        // The systemd service will capture it.
         log::info!("🚀 Starting TimeTurner daemon...");
     }
 
-    // 6️⃣ Set up a LocalSet for the API server and main loop
+    // 6️⃣ Spawn the auto-sync thread
+    {
+        let sync_state = ltc_state.clone();
+        let sync_config = config.clone();
+        thread::spawn(move || {
+            // Wait for the first LTC frame to arrive
+            loop {
+                if sync_state.lock().unwrap().latest.is_some() {
+                    log::info!("Auto-sync: Initial LTC frame detected.");
+                    break;
+                }
+                thread::sleep(std::time::Duration::from_secs(1));
+            }
+
+            // Initial sync
+            {
+                let state = sync_state.lock().unwrap();
+                let config = sync_config.lock().unwrap();
+                if config.auto_sync_enabled {
+                    if let Some(frame) = &state.latest {
+                        log::info!("Auto-sync: Performing initial full sync.");
+                        if system::trigger_sync(frame, &config).is_ok() {
+                            log::info!("Auto-sync: Initial sync successful.");
+                        } else {
+                            log::error!("Auto-sync: Initial sync failed.");
+                        }
+                    }
+                }
+            }
+
+            thread::sleep(std::time::Duration::from_secs(10));
+
+            // Main auto-sync loop
+            loop {
+                {
+                    let state = sync_state.lock().unwrap();
+                    let config = sync_config.lock().unwrap();
+
+                    if config.auto_sync_enabled && state.latest.is_some() {
+                        let delta = state.get_ewma_clock_delta();
+                        let frame = state.latest.as_ref().unwrap();
+
+                        if delta.abs() > 40 {
+                            log::info!("Auto-sync: Delta > 40ms ({}ms), performing full sync.", delta);
+                            if system::trigger_sync(frame, &config).is_ok() {
+                                log::info!("Auto-sync: Full sync successful.");
+                            } else {
+                                log::error!("Auto-sync: Full sync failed.");
+                            }
+                        } else if delta.abs() >= 1 {
+                            // nudge_clock takes microseconds. A positive delta means clock is
+                            // ahead, so we need a negative nudge.
+                            let nudge_us = -delta * 1000;
+                            log::info!("Auto-sync: Delta is {}ms, nudging clock by {}us.", delta, nudge_us);
+                            if system::nudge_clock(nudge_us).is_ok() {
+                                log::info!("Auto-sync: Clock nudge successful.");
+                            } else {
+                                log::error!("Auto-sync: Clock nudge failed.");
+                            }
+                        }
+                    }
+                } // locks released here
+
+                thread::sleep(std::time::Duration::from_secs(10));
+            }
+        });
+    }
+
+    // 7️⃣ Set up a LocalSet for the API server and main loop
     let local = LocalSet::new();
     local
         .run_until(async move {
-            // 7️⃣ Spawn the API server thread
+            // 8️⃣ Spawn the API server thread
             {
                 let api_state = ltc_state.clone();
                 let config_clone = config.clone();
+                let log_buffer_clone = log_buffer.clone();
                 task::spawn_local(async move {
-                    if let Err(e) = start_api_server(api_state, config_clone).await {
-                        eprintln!("API server error: {}", e);
+                    if let Err(e) =
+                        start_api_server(api_state, config_clone, log_buffer_clone).await
+                    {
+                        log::error!("API server error: {}", e);
                     }
                 });
             }
 
-            // 8️⃣ Keep main thread alive
+            // 9️⃣ Main logic loop: process frames from serial and update state
+            let loop_state = ltc_state.clone();
+            let loop_config = config.clone();
+            let logic_task = task::spawn_blocking(move || {
+                for frame in rx {
+                    let mut state = loop_state.lock().unwrap();
+                    let config = loop_config.lock().unwrap();
+
+                    // Only calculate delta for LOCK frames
+                    if frame.status == "LOCK" {
+                        let target_time = system::calculate_target_time(&frame, &config);
+                        let arrival_time_local: chrono::DateTime<chrono::Local> =
+                            frame.timestamp.with_timezone(&chrono::Local);
+                        let delta = arrival_time_local.signed_duration_since(target_time);
+                        state.record_and_update_ewma_clock_delta(delta.num_milliseconds());
+                    }
+
+                    state.update(frame);
+                }
+            });
+
+            // 1️⃣0️⃣ Keep main thread alive
             if args.command.is_some() {
-                // In daemon mode, wait forever.
+                // In daemon mode, wait forever. The logic_task runs in the background.
                 std::future::pending::<()>().await;
             } else {
-                // In TUI mode, block on the channel.
-                println!("📡 Main thread entering loop...");
-                let _ = task::spawn_blocking(move || {
-                    for _frame in rx {
-                        // no-op
-                    }
-                })
-                .await;
+                // In TUI mode, block until the logic_task finishes (e.g. serial port disconnects)
+                // This keeps the TUI running.
+                log::info!("📡 Main thread entering loop...");
+                let _ = logic_task.await;
             }
         })
         .await;
@@ -172,18 +269,35 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    /// RAII guard to ensure config file is cleaned up after test.
-    struct ConfigGuard;
+    /// RAII guard to manage config file during tests.
+    /// It saves the original content of `config.yml` if it exists,
+    /// and restores it when the guard goes out of scope.
+    /// If the file didn't exist, it's removed.
+    struct ConfigGuard {
+        original_content: Option<String>,
+    }
+
+    impl ConfigGuard {
+        fn new() -> Self {
+            Self {
+                original_content: fs::read_to_string("config.yml").ok(),
+            }
+        }
+    }
 
     impl Drop for ConfigGuard {
         fn drop(&mut self) {
-            let _ = fs::remove_file("config.yml");
+            if let Some(content) = &self.original_content {
+                fs::write("config.yml", content).expect("Failed to restore config.yml");
+            } else {
+                let _ = fs::remove_file("config.yml");
+            }
         }
     }
 
     #[test]
     fn test_ensure_config() {
-        let _guard = ConfigGuard; // Cleanup when _guard goes out of scope.
+        let _guard = ConfigGuard::new(); // Cleanup when _guard goes out of scope.
 
         // --- Test 1: File creation ---
         // Pre-condition: config.yml does not exist.

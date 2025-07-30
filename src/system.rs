@@ -57,7 +57,7 @@ pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Loca
         + ChronoDuration::seconds(offset.seconds);
     // Frame offset needs to be converted to milliseconds
     let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
-    dt_local + ChronoDuration::milliseconds(frame_offset_ms)
+    dt_local + ChronoDuration::milliseconds(frame_offset_ms + offset.milliseconds)
 }
 
 pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
@@ -100,6 +100,33 @@ pub fn trigger_sync(frame: &LtcFrame, config: &Config) -> Result<String, ()> {
     if success {
         Ok(ts)
     } else {
+        Err(())
+    }
+}
+
+pub fn nudge_clock(microseconds: i64) -> Result<(), ()> {
+    #[cfg(target_os = "linux")]
+    {
+        let success = Command::new("sudo")
+            .arg("adjtimex")
+            .arg("--singleshot")
+            .arg(microseconds.to_string())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+
+        if success {
+            log::info!("Nudged clock by {} us", microseconds);
+            Ok(())
+        } else {
+            log::error!("Failed to nudge clock with adjtimex");
+            Err(())
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = microseconds;
+        log::warn!("Clock nudging is only supported on Linux.");
         Err(())
     }
 }
@@ -150,6 +177,7 @@ mod tests {
             minutes: 5,
             seconds: 10,
             frames: 12, // 12 frames at 25fps is 480ms
+            milliseconds: 20,
         };
 
         let target_time = calculate_target_time(&frame, &config);
@@ -157,8 +185,8 @@ mod tests {
         assert_eq!(target_time.hour(), 11);
         assert_eq!(target_time.minute(), 25);
         assert_eq!(target_time.second(), 40);
-        // 480ms
-        assert_eq!(target_time.nanosecond(), 480_000_000);
+        // 480ms + 20ms = 500ms
+        assert_eq!(target_time.nanosecond(), 500_000_000);
     }
 
     #[test]
@@ -170,13 +198,20 @@ mod tests {
             minutes: -5,
             seconds: -10,
             frames: -12, // -480ms
+            milliseconds: -80,
         };
 
         let target_time = calculate_target_time(&frame, &config);
 
         assert_eq!(target_time.hour(), 9);
         assert_eq!(target_time.minute(), 15);
-        assert_eq!(target_time.second(), 20);
-        assert_eq!(target_time.nanosecond(), 0);
+        assert_eq!(target_time.second(), 19);
+        assert_eq!(target_time.nanosecond(), 920_000_000);
+    }
+
+    #[test]
+    fn test_nudge_clock_on_non_linux() {
+        #[cfg(not(target_os = "linux"))]
+        assert!(nudge_clock(1000).is_err());
     }
 }

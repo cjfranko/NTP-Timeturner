@@ -9,7 +9,6 @@ use std::collections::VecDeque;
 
 use chrono::{
     DateTime, Local, Timelike, Utc,
-    NaiveTime, TimeZone, Duration as ChronoDuration,
 };
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -35,7 +34,6 @@ pub fn start_ui(
     terminal::enable_raw_mode().unwrap();
 
     let mut logs: VecDeque<String> = VecDeque::with_capacity(10);
-    let mut out_of_sync_since: Option<Instant> = None;
     let mut last_delta_update = Instant::now() - Duration::from_secs(1);
     let mut cached_delta_ms: i64 = 0;
     let mut cached_delta_frames: i64 = 0;
@@ -54,7 +52,7 @@ pub fn start_ui(
             .map(|ifa| ifa.ip().to_string())
             .collect();
 
-        // 3️⃣ jitter + Δ
+        // 3️⃣ jitter
         {
             let mut st = state.lock().unwrap();
             if let Some(frame) = st.latest.clone() {
@@ -64,33 +62,6 @@ pub fn start_ui(
                     let raw = (now_utc - frame.timestamp).num_milliseconds();
                     let measured = raw - hw_offset_ms;
                     st.record_offset(measured);
-
-                    // Δ = system clock - LTC timecode (use LOCAL time, with offset)
-                    let today_local = Local::now().date_naive();
-                    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
-                    let tc_naive = NaiveTime::from_hms_milli_opt(
-                        frame.hours, frame.minutes, frame.seconds, ms,
-                    ).expect("Invalid LTC timecode");
-                    let naive_dt_local = today_local.and_time(tc_naive);
-                    let mut dt_local = Local
-                        .from_local_datetime(&naive_dt_local)
-                        .single()
-                        .expect("Invalid local time");
-
-                    // Apply timeturner offset before calculating delta
-                    let offset = &cfg.timeturner_offset;
-                    dt_local = dt_local
-                        + ChronoDuration::hours(offset.hours)
-                        + ChronoDuration::minutes(offset.minutes)
-                        + ChronoDuration::seconds(offset.seconds);
-                    let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
-                    dt_local = dt_local + ChronoDuration::milliseconds(frame_offset_ms);
-
-                    let delta_ms = (Local::now() - dt_local).num_milliseconds();
-                    st.record_clock_delta(delta_ms);
-                } else {
-                    st.clear_offsets();
-                    st.clear_clock_deltas();
                 }
             }
         }
@@ -103,7 +74,7 @@ pub fn start_ui(
                 st.average_frames(),
                 st.timecode_match().to_string(),
                 st.lock_ratio(),
-                st.average_clock_delta(),
+                st.get_ewma_clock_delta(),
             )
         };
 
@@ -122,28 +93,7 @@ pub fn start_ui(
         // 6️⃣ sync status wording
         let sync_status = get_sync_status(cached_delta_ms, &cfg);
 
-        // 7️⃣ auto‑sync (same as manual but delayed)
-        if sync_status != "IN SYNC" && sync_status != "TIMETURNING" {
-            if let Some(start) = out_of_sync_since {
-                if start.elapsed() >= Duration::from_secs(5) {
-                    if let Some(frame) = &state.lock().unwrap().latest {
-                        let entry = match system::trigger_sync(frame, &cfg) {
-                            Ok(ts) => format!("🔄 Auto‑synced to LTC: {}", ts),
-                            Err(_) => "❌ Auto‑sync failed".into(),
-                        };
-                        if logs.len() == 10 { logs.pop_front(); }
-                        logs.push_back(entry);
-                    }
-                    out_of_sync_since = None;
-                }
-            } else {
-                out_of_sync_since = Some(Instant::now());
-            }
-        } else {
-            out_of_sync_since = None;
-        }
-
-        // 8️⃣ header & LTC metrics display
+        // 7️⃣ header & LTC metrics display
         {
             let st = state.lock().unwrap();
             let opt = st.latest.as_ref();
@@ -279,10 +229,3 @@ pub fn start_ui(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[allow(unused_imports)]
-    use super::*;
-    #[allow(unused_imports)]
-    use crate::config::TimeturnerOffset;
-}

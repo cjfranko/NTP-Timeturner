@@ -3,6 +3,8 @@ use chrono::{DateTime, Local, Timelike, Utc};
 use regex::Captures;
 use std::collections::VecDeque;
 
+const EWMA_ALPHA: f64 = 0.1;
+
 #[derive(Clone, Debug)]
 pub struct LtcFrame {
     pub status: String,
@@ -42,8 +44,8 @@ pub struct LtcState {
     pub free_count: u32,
     /// Stores the last up-to-20 raw offset measurements in ms.
     pub offset_history: VecDeque<i64>,
-    /// Stores the last up-to-20 timecode Δ measurements in ms.
-    pub clock_delta_history: VecDeque<i64>,
+    /// EWMA of clock delta.
+    pub ewma_clock_delta: Option<f64>,
     pub last_match_status: String,
     pub last_match_check: i64,
 }
@@ -55,7 +57,7 @@ impl LtcState {
             lock_count: 0,
             free_count: 0,
             offset_history: VecDeque::with_capacity(20),
-            clock_delta_history: VecDeque::with_capacity(20),
+            ewma_clock_delta: None,
             last_match_status: "UNKNOWN".into(),
             last_match_check: 0,
         }
@@ -69,22 +71,19 @@ impl LtcState {
         self.offset_history.push_back(offset_ms);
     }
 
-    /// Record one timecode Δ in ms.
-    pub fn record_clock_delta(&mut self, delta_ms: i64) {
-        if self.clock_delta_history.len() == 20 {
-            self.clock_delta_history.pop_front();
+    /// Update EWMA of clock delta.
+    pub fn record_and_update_ewma_clock_delta(&mut self, delta_ms: i64) {
+        let new_delta = delta_ms as f64;
+        if let Some(current_ewma) = self.ewma_clock_delta {
+            self.ewma_clock_delta = Some(EWMA_ALPHA * new_delta + (1.0 - EWMA_ALPHA) * current_ewma);
+        } else {
+            self.ewma_clock_delta = Some(new_delta);
         }
-        self.clock_delta_history.push_back(delta_ms);
     }
 
     /// Clear all stored jitter measurements.
     pub fn clear_offsets(&mut self) {
         self.offset_history.clear();
-    }
-
-    /// Clear all stored timecode Δ measurements.
-    pub fn clear_clock_deltas(&mut self) {
-        self.clock_delta_history.clear();
     }
 
     /// Update LOCK/FREE counts and timecode-match status every 5 s.
@@ -108,7 +107,7 @@ impl LtcState {
             "FREE" => {
                 self.free_count += 1;
                 self.clear_offsets();
-                self.clear_clock_deltas();
+                self.ewma_clock_delta = None;
                 self.last_match_status = "UNKNOWN".into();
             }
             _ => {}
@@ -137,23 +136,9 @@ impl LtcState {
         }
     }
 
-    /// Median timecode Δ over stored history, in ms.
-    pub fn average_clock_delta(&self) -> i64 {
-        if self.clock_delta_history.is_empty() {
-            return 0;
-        }
-
-        let mut sorted_deltas: Vec<i64> = self.clock_delta_history.iter().cloned().collect();
-        sorted_deltas.sort_unstable();
-
-        let mid = sorted_deltas.len() / 2;
-        if sorted_deltas.len() % 2 == 0 {
-            // Even number of elements, average the two middle ones
-            (sorted_deltas[mid - 1] + sorted_deltas[mid]) / 2
-        } else {
-            // Odd number of elements, return the middle one
-            sorted_deltas[mid]
-        }
+    /// Get EWMA of clock delta, in ms.
+    pub fn get_ewma_clock_delta(&self) -> i64 {
+        self.ewma_clock_delta.map_or(0, |v| v.round() as i64)
     }
 
     /// Percentage of samples seen in LOCK state versus total.
@@ -175,6 +160,8 @@ impl LtcState {
 pub fn get_sync_status(delta_ms: i64, config: &Config) -> &'static str {
     if config.timeturner_offset.is_active() {
         "TIMETURNING"
+    } else if config.auto_sync_enabled {
+        "TIME LOCK ACTIVE"
     } else if delta_ms.abs() <= 8 {
         "IN SYNC"
     } else if delta_ms > 10 {
@@ -326,35 +313,28 @@ mod tests {
     }
 
     #[test]
-    fn test_average_clock_delta_is_median() {
+    fn test_ewma_clock_delta() {
         let mut state = LtcState::new();
+        assert_eq!(state.get_ewma_clock_delta(), 0);
 
-        // Establish a stable set of values
-        for _ in 0..19 {
-            state.record_clock_delta(2);
-        }
-        state.record_clock_delta(100); // Add an outlier
+        // First value initializes the EWMA
+        state.record_and_update_ewma_clock_delta(100);
+        assert_eq!(state.get_ewma_clock_delta(), 100);
 
-        // With 19 `2`s and one `100`, the median should still be `2`.
-        // The simple average would be (19*2 + 100) / 20 = 138 / 20 = 6.
-        assert_eq!(
-            state.average_clock_delta(),
-            2,
-            "Median should ignore the outlier"
-        );
+        // Second value moves it
+        state.record_and_update_ewma_clock_delta(200);
+        // 0.1 * 200 + 0.9 * 100 = 20 + 90 = 110
+        assert_eq!(state.get_ewma_clock_delta(), 110);
 
-        // Test with an even number of elements
-        state.clear_clock_deltas();
-        state.record_clock_delta(1);
-        state.record_clock_delta(2);
-        state.record_clock_delta(3);
-        state.record_clock_delta(100);
-        // sorted: [1, 2, 3, 100]. mid two are 2, 3. average is (2+3)/2 = 2.
-        assert_eq!(
-            state.average_clock_delta(),
-            2,
-            "Median of even numbers should be correct"
-        );
+        // Third value
+        state.record_and_update_ewma_clock_delta(100);
+        // 0.1 * 100 + 0.9 * 110 = 10 + 99 = 109
+        assert_eq!(state.get_ewma_clock_delta(), 109);
+
+        // Reset on FREE frame
+        state.update(get_test_frame("FREE", 0, 0, 0));
+        assert_eq!(state.get_ewma_clock_delta(), 0);
+        assert!(state.ewma_clock_delta.is_none());
     }
 
     #[test]
@@ -369,8 +349,12 @@ mod tests {
         assert_eq!(get_sync_status(-9, &config), "CLOCK BEHIND");
         assert_eq!(get_sync_status(-100, &config), "CLOCK BEHIND");
 
-        // Test TIMETURNING status
-        config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0 };
+        // Test auto-sync status
+        config.auto_sync_enabled = true;
+        assert_eq!(get_sync_status(0, &config), "TIME LOCK ACTIVE");
+
+        // Test TIMETURNING status takes precedence
+        config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0, milliseconds: 0 };
         assert_eq!(get_sync_status(0, &config), "TIMETURNING");
         assert_eq!(get_sync_status(100, &config), "TIMETURNING");
     }

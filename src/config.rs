@@ -19,11 +19,17 @@ pub struct TimeturnerOffset {
     pub minutes: i64,
     pub seconds: i64,
     pub frames: i64,
+    #[serde(default)]
+    pub milliseconds: i64,
 }
 
 impl TimeturnerOffset {
     pub fn is_active(&self) -> bool {
-        self.hours != 0 || self.minutes != 0 || self.seconds != 0 || self.frames != 0
+        self.hours != 0
+            || self.minutes != 0
+            || self.seconds != 0
+            || self.frames != 0
+            || self.milliseconds != 0
     }
 }
 
@@ -33,6 +39,14 @@ pub struct Config {
     pub hardware_offset_ms: i64,
     #[serde(default)]
     pub timeturner_offset: TimeturnerOffset,
+    #[serde(default = "default_nudge_ms")]
+    pub default_nudge_ms: i64,
+    #[serde(default)]
+    pub auto_sync_enabled: bool,
+}
+
+fn default_nudge_ms() -> i64 {
+    2 // Default nudge is 2ms
 }
 
 impl Config {
@@ -46,7 +60,7 @@ impl Config {
             return Self::default();
         }
         serde_yaml::from_str(&contents).unwrap_or_else(|e| {
-            eprintln!("Failed to parse config, using default: {}", e);
+            log::warn!("Failed to parse config, using default: {}", e);
             Self::default()
         })
     }
@@ -57,13 +71,35 @@ impl Default for Config {
         Self {
             hardware_offset_ms: 0,
             timeturner_offset: TimeturnerOffset::default(),
+            default_nudge_ms: default_nudge_ms(),
+            auto_sync_enabled: false,
         }
     }
 }
 
 pub fn save_config(path: &str, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let contents = serde_yaml::to_string(config)?;
-    fs::write(path, contents)?;
+    let mut s = String::new();
+    s.push_str("# Hardware offset in milliseconds for correcting capture latency.\n");
+    s.push_str(&format!("hardwareOffsetMs: {}\n\n", config.hardware_offset_ms));
+
+    s.push_str("# Enable automatic clock synchronization.\n");
+    s.push_str("# When enabled, the system will perform an initial full sync, then periodically\n");
+    s.push_str("# nudge the clock to keep it aligned with the LTC source.\n");
+    s.push_str(&format!("autoSyncEnabled: {}\n\n", config.auto_sync_enabled));
+
+    s.push_str("# Default nudge in milliseconds for adjtimex control.\n");
+    s.push_str(&format!("defaultNudgeMs: {}\n\n", config.default_nudge_ms));
+
+    s.push_str("# Time-turning offsets. All values are added to the incoming LTC time.\n");
+    s.push_str("# These can be positive or negative.\n");
+    s.push_str("timeturnerOffset:\n");
+    s.push_str(&format!("  hours: {}\n", config.timeturner_offset.hours));
+    s.push_str(&format!("  minutes: {}\n", config.timeturner_offset.minutes));
+    s.push_str(&format!("  seconds: {}\n", config.timeturner_offset.seconds));
+    s.push_str(&format!("  frames: {}\n", config.timeturner_offset.frames));
+    s.push_str(&format!("  milliseconds: {}\n", config.timeturner_offset.milliseconds));
+
+    fs::write(path, s)?;
     Ok(())
 }
 
@@ -82,7 +118,7 @@ pub fn watch_config(path: &str) -> Arc<Mutex<Config>> {
                     let new_cfg = Config::load(&watch_path_for_cb);
                     let mut cfg = config_for_cb.lock().unwrap();
                     *cfg = new_cfg;
-                    eprintln!("🔄 Reloaded config.yml: {:?}", *cfg);
+                    log::info!("🔄 Reloaded config.yml: {:?}", *cfg);
                 }
             }
         })
