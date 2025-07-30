@@ -131,6 +131,33 @@ pub fn nudge_clock(microseconds: i64) -> Result<(), ()> {
     }
 }
 
+pub fn set_date(date: &str) -> Result<(), ()> {
+    #[cfg(target_os = "linux")]
+    {
+        let success = Command::new("sudo")
+            .arg("date")
+            .arg("--set")
+            .arg(date)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+
+        if success {
+            log::info!("Set system date to {}", date);
+            Ok(())
+        } else {
+            log::error!("Failed to set system date");
+            Err(())
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = date;
+        log::warn!("Date setting is only supported on Linux.");
+        Err(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
