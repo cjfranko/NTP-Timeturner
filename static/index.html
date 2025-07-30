@@ -23,6 +23,7 @@
             <div class="card">
                 <h2>System Clock</h2>
                 <p id="system-clock">--:--:--.---</p>
+                <p>Date: <span id="system-date">---- -- --</span></p>
                 <p>NTP Service: <span id="ntp-active">--</span></p>
                 <p>Sync Status: <span id="sync-status">--</span></p>
             </div>
@@ -89,6 +90,12 @@
                     <input type="number" id="nudge-value" style="width: 60px;">
                     <button id="nudge-up">+</button>
                     <span id="nudge-message"></span>
+                </div>
+                <div class="control-group">
+                    <label for="date-input">Set System Date:</label>
+                    <input type="date" id="date-input">
+                    <button id="set-date">Set Date</button>
+                    <span id="date-message"></span>
                 </div>
             </div>
 

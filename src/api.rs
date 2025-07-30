@@ -19,6 +19,7 @@ struct ApiStatus {
     ltc_timecode: String,
     frame_rate: String,
     system_clock: String,
+    system_date: String,
     timecode_delta_ms: i64,
     timecode_delta_frames: i64,
     sync_status: String,
@@ -58,6 +59,7 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         now_local.second(),
         now_local.timestamp_subsec_millis(),
     );
+    let system_date = now_local.format("%Y-%m-%d").to_string();
 
     let avg_delta = state.get_ewma_clock_delta();
     let mut delta_frames = 0;
@@ -83,6 +85,7 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         ltc_timecode,
         frame_rate,
         system_clock,
+        system_date,
         timecode_delta_ms: avg_delta,
         timecode_delta_frames: delta_frames,
         sync_status: sync_status.to_string(),
@@ -132,6 +135,22 @@ async fn nudge_clock(req: web::Json<NudgeRequest>) -> impl Responder {
         HttpResponse::Ok().json(serde_json::json!({ "status": "success", "message": "Clock nudge command issued." }))
     } else {
         HttpResponse::InternalServerError().json(serde_json::json!({ "status": "error", "message": "Clock nudge command failed." }))
+    }
+}
+
+#[derive(Deserialize)]
+struct SetDateRequest {
+    date: String,
+}
+
+#[post("/api/set_date")]
+async fn set_date(req: web::Json<SetDateRequest>) -> impl Responder {
+    if system::set_date(&req.date).is_ok() {
+        HttpResponse::Ok()
+            .json(serde_json::json!({ "status": "success", "message": "Date update command issued." }))
+    } else {
+        HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "status": "error", "message": "Date update command failed." }))
     }
 }
 
@@ -192,6 +211,7 @@ pub async fn start_api_server(
             .service(update_config)
             .service(get_logs)
             .service(nudge_clock)
+            .service(set_date)
             // Serve frontend static files
             .service(fs::Files::new("/", "static/").index_file("index.html"))
     })

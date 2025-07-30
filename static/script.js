@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
         frameRate: document.getElementById('frame-rate'),
         lockRatio: document.getElementById('lock-ratio'),
         systemClock: document.getElementById('system-clock'),
+        systemDate: document.getElementById('system-date'),
         ntpActive: document.getElementById('ntp-active'),
         syncStatus: document.getElementById('sync-status'),
         deltaMs: document.getElementById('delta-ms'),
@@ -35,12 +36,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const nudgeValueInput = document.getElementById('nudge-value');
     const nudgeMessage = document.getElementById('nudge-message');
 
+    const dateInput = document.getElementById('date-input');
+    const setDateButton = document.getElementById('set-date');
+    const dateMessage = document.getElementById('date-message');
+
     function updateStatus(data) {
         statusElements.ltcStatus.textContent = data.ltc_status;
         statusElements.ltcTimecode.textContent = data.ltc_timecode;
         statusElements.frameRate.textContent = data.frame_rate;
         statusElements.lockRatio.textContent = data.lock_ratio.toFixed(2);
         statusElements.systemClock.textContent = data.system_clock;
+        statusElements.systemDate.textContent = data.system_date;
 
         statusElements.ntpActive.textContent = data.ntp_active ? 'Active' : 'Inactive';
         statusElements.ntpActive.className = data.ntp_active ? 'active' : 'inactive';
@@ -238,6 +244,35 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { nudgeMessage.textContent = ''; }, 3000);
     }
 
+    async function setDate() {
+        const date = dateInput.value;
+        if (!date) {
+            alert('Please select a date.');
+            return;
+        }
+
+        dateMessage.textContent = 'Setting date...';
+        try {
+            const response = await fetch('/api/set_date', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: date }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                dateMessage.textContent = `Success: ${data.message}`;
+                // Fetch status again to update the displayed date immediately
+                fetchStatus();
+            } else {
+                dateMessage.textContent = `Error: ${data.message}`;
+            }
+        } catch (error) {
+            console.error('Error setting date:', error);
+            dateMessage.textContent = 'Failed to send date command.';
+        }
+        setTimeout(() => { dateMessage.textContent = ''; }, 5000);
+    }
+
     saveConfigButton.addEventListener('click', saveConfig);
     manualSyncButton.addEventListener('click', triggerManualSync);
     nudgeDownButton.addEventListener('click', () => {
@@ -248,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ms = parseInt(nudgeValueInput.value, 10) || 0;
         nudgeClock(ms);
     });
+    setDateButton.addEventListener('click', setDate);
 
     // Initial data load
     fetchStatus();

@@ -17,6 +17,7 @@ This document describes the HTTP API for the NTP Timeturner application.
     "ltc_timecode": "10:20:30:00",
     "frame_rate": "25.00fps",
     "system_clock": "10:20:30.005",
+    "system_date": "2025-07-30",
     "timecode_delta_ms": 5,
     "timecode_delta_frames": 0,
     "sync_status": "IN SYNC",
@@ -55,6 +56,33 @@ This document describes the HTTP API for the NTP Timeturner application.
   {
     "status": "error",
     "message": "Sync command failed."
+  }
+  ```
+
+- **`POST /api/set_date`**
+
+  Sets the system date. This is useful as LTC does not contain date information. Requires `sudo` privileges.
+
+  **Example Request:**
+  ```json
+  {
+    "date": "2025-07-30"
+  }
+  ```
+
+  **Success Response:**
+  ```json
+  {
+    "status": "success",
+    "message": "Date update command issued."
+  }
+  ```
+
+  **Error Response:**
+  ```json
+  {
+    "status": "error",
+    "message": "Date update command failed."
   }
   ```
 
