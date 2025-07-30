@@ -160,9 +160,9 @@ impl LtcState {
 pub fn get_sync_status(delta_ms: i64, config: &Config) -> &'static str {
     if config.timeturner_offset.is_active() {
         "TIMETURNING"
-    } else if delta_ms.abs() <= 8 {
+    } else if delta_ms.abs() <= 2 {
         "IN SYNC"
-    } else if delta_ms > 10 {
+    } else if delta_ms > 3 {
         "CLOCK AHEAD"
     } else {
         "CLOCK BEHIND"
