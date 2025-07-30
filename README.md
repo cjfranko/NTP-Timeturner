@@ -24,7 +24,7 @@ Created by Chris Frankland-Wright and John Rogers
 - Reads SMPTE LTC from Audio Interface (3.5mm TRS but adaptable to BNC/XLR)
 - Converts LTC into NTP-synced time
 - Broadcasts time via local NTP server
-- Supports configurable time offsets (hours, minutes, seconds, frames, and milliseconds)
+- Supports configurable time offsets (hours, minutes, seconds, milliseconds) - NOT AVAILABLE
 - Systemd service support for headless operation
 
 ---
