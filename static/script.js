@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    let lastApiData = null;
+    let lastApiFetchTime = null;
+
     const statusElements = {
         ltcStatus: document.getElementById('ltc-status'),
         ltcTimecode: document.getElementById('ltc-timecode'),
@@ -65,14 +68,75 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function animateClocks() {
+        if (!lastApiData || !lastApiFetchTime) return;
+
+        const elapsedMs = new Date() - lastApiFetchTime;
+
+        // Animate System Clock
+        if (lastApiData.system_clock && lastApiData.system_clock.includes(':')) {
+            const parts = lastApiData.system_clock.split(/[:.]/);
+            if (parts.length === 4) {
+                const baseDate = new Date();
+                baseDate.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10));
+                baseDate.setMilliseconds(parseInt(parts[3], 10));
+                
+                const newDate = new Date(baseDate.getTime() + elapsedMs);
+                
+                const h = String(newDate.getHours()).padStart(2, '0');
+                const m = String(newDate.getMinutes()).padStart(2, '0');
+                const s = String(newDate.getSeconds()).padStart(2, '0');
+                const ms = String(newDate.getMilliseconds()).padStart(3, '0');
+                statusElements.systemClock.textContent = `${h}:${m}:${s}.${ms}`;
+            }
+        }
+
+        // Animate LTC Timecode - only if status is LOCK
+        if (lastApiData.ltc_status === 'LOCK' && lastApiData.ltc_timecode && lastApiData.ltc_timecode.includes(':') && lastApiData.frame_rate) {
+            const tcParts = lastApiData.ltc_timecode.split(':');
+            const frameRate = parseFloat(lastApiData.frame_rate);
+            if (tcParts.length === 4 && !isNaN(frameRate) && frameRate > 0) {
+                let h = parseInt(tcParts[0], 10);
+                let m = parseInt(tcParts[1], 10);
+                let s = parseInt(tcParts[2], 10);
+                let f = parseInt(tcParts[3], 10);
+                
+                const msPerFrame = 1000.0 / frameRate;
+                const elapsedFrames = Math.floor(elapsedMs / msPerFrame);
+                
+                f += elapsedFrames;
+                
+                const frameRateInt = Math.round(frameRate);
+                
+                s += Math.floor(f / frameRateInt);
+                f %= frameRateInt;
+                
+                m += Math.floor(s / 60);
+                s %= 60;
+                
+                h += Math.floor(m / 60);
+                m %= 60;
+                
+                h %= 24;
+                
+                statusElements.ltcTimecode.textContent = 
+                    `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
+            }
+        }
+    }
+
     async function fetchStatus() {
         try {
             const response = await fetch('/api/status');
             if (!response.ok) throw new Error('Failed to fetch status');
             const data = await response.json();
             updateStatus(data);
+            lastApiData = data;
+            lastApiFetchTime = new Date();
         } catch (error) {
             console.error('Error fetching status:', error);
+            lastApiData = null;
+            lastApiFetchTime = null;
         }
     }
 
@@ -193,4 +257,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Refresh data every 2 seconds
     setInterval(fetchStatus, 2000);
     setInterval(fetchLogs, 2000);
+    setInterval(animateClocks, 50); // High-frequency clock animation
 });
