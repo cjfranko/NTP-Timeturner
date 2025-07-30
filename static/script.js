@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusElements.frameRate.textContent = data.frame_rate;
         statusElements.lockRatio.textContent = data.lock_ratio.toFixed(2);
         statusElements.systemClock.textContent = data.system_clock;
-        
+
         statusElements.ntpActive.textContent = data.ntp_active ? 'Active' : 'Inactive';
         statusElements.ntpActive.className = data.ntp_active ? 'active' : 'inactive';
 
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         statusElements.deltaMs.textContent = data.timecode_delta_ms;
         statusElements.deltaFrames.textContent = data.timecode_delta_frames;
-        
+
         statusElements.jitterStatus.textContent = data.jitter_status;
         statusElements.jitterStatus.className = data.jitter_status.toLowerCase();
 
@@ -80,9 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const baseDate = new Date();
                 baseDate.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10));
                 baseDate.setMilliseconds(parseInt(parts[3], 10));
-                
+
                 const newDate = new Date(baseDate.getTime() + elapsedMs);
-                
+
                 const h = String(newDate.getHours()).padStart(2, '0');
                 const m = String(newDate.getMinutes()).padStart(2, '0');
                 const s = String(newDate.getSeconds()).padStart(2, '0');
@@ -100,26 +100,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 let m = parseInt(tcParts[1], 10);
                 let s = parseInt(tcParts[2], 10);
                 let f = parseInt(tcParts[3], 10);
-                
+
                 const msPerFrame = 1000.0 / frameRate;
                 const elapsedFrames = Math.floor(elapsedMs / msPerFrame);
-                
+
                 f += elapsedFrames;
-                
+
                 const frameRateInt = Math.round(frameRate);
-                
+
                 s += Math.floor(f / frameRateInt);
                 f %= frameRateInt;
-                
+
                 m += Math.floor(s / 60);
                 s %= 60;
-                
+
                 h += Math.floor(m / 60);
                 m %= 60;
-                
+
                 h %= 24;
-                
-                statusElements.ltcTimecode.textContent = 
+
+                statusElements.ltcTimecode.textContent =
                     `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
             }
         }
@@ -164,10 +164,10 @@ document.addEventListener('DOMContentLoaded', () => {
             autoSyncEnabled: autoSyncCheckbox.checked,
             defaultNudgeMs: parseInt(nudgeValueInput.value, 10) || 0,
             timeturnerOffset: {
-                hours:   parseInt(offsetInputs.h.value, 10) || 0,
+                hours: parseInt(offsetInputs.h.value, 10) || 0,
                 minutes: parseInt(offsetInputs.m.value, 10) || 0,
                 seconds: parseInt(offsetInputs.s.value, 10) || 0,
-                frames:  parseInt(offsetInputs.f.value, 10) || 0,
+                frames: parseInt(offsetInputs.f.value, 10) || 0,
                 milliseconds: parseInt(offsetInputs.ms.value, 10) || 0,
             }
         };
