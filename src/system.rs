@@ -210,6 +210,46 @@ mod tests {
     }
 
     #[test]
+    fn test_calculate_target_time_different_framerates() {
+        let config = Config::default();
+
+        // 25fps, 12 frames -> 480ms.
+        let mut frame = get_test_frame(10, 20, 30, 12);
+        let target_time_25 = calculate_target_time(&frame, &config);
+        assert_eq!(target_time_25.hour(), 10);
+        assert_eq!(target_time_25.minute(), 20);
+        assert_eq!(target_time_25.second(), 30);
+        assert_eq!(target_time_25.nanosecond(), 480_000_000);
+
+        // 24fps, 12 frames -> 500ms
+        frame.frame_rate = 24.0;
+        let target_time_24 = calculate_target_time(&frame, &config);
+        assert_eq!(target_time_24.hour(), 10);
+        assert_eq!(target_time_24.minute(), 20);
+        assert_eq!(target_time_24.second(), 30);
+        assert_eq!(target_time_24.nanosecond(), 500_000_000);
+
+        // 29.97fps, 15 frames -> 501ms
+        frame.frame_rate = 29.97;
+        frame.frames = 15;
+        // (15 / 29.97) * 1000 = 500.500... -> round() -> 501
+        let target_time_2997 = calculate_target_time(&frame, &config);
+        assert_eq!(target_time_2997.hour(), 10);
+        assert_eq!(target_time_2997.minute(), 20);
+        assert_eq!(target_time_2997.second(), 30);
+        assert_eq!(target_time_2997.nanosecond(), 501_000_000);
+
+        // 30fps, 15 frames -> 500ms
+        frame.frame_rate = 30.0;
+        // frames is still 15
+        let target_time_30 = calculate_target_time(&frame, &config);
+        assert_eq!(target_time_30.hour(), 10);
+        assert_eq!(target_time_30.minute(), 20);
+        assert_eq!(target_time_30.second(), 30);
+        assert_eq!(target_time_30.nanosecond(), 500_000_000);
+    }
+
+    #[test]
     fn test_nudge_clock_on_non_linux() {
         #[cfg(not(target_os = "linux"))]
         assert!(nudge_clock(1000).is_err());
