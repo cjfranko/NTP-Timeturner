@@ -165,7 +165,7 @@ pub fn get_sync_status(delta_ms: i64, config: &Config) -> &'static str {
         "TIME LOCK ACTIVE"
     } else if delta_ms.abs() <= 8 {
         "IN SYNC"
-    } else if delta_ms > 10 {
+    } else if delta_ms > 8 {
         "CLOCK AHEAD"
     } else {
         "CLOCK BEHIND"
@@ -392,8 +392,8 @@ mod tests {
         assert_eq!(get_sync_status(0, &config), "IN SYNC");
         assert_eq!(get_sync_status(8, &config), "IN SYNC");
         assert_eq!(get_sync_status(-8, &config), "IN SYNC");
-        assert_eq!(get_sync_status(9, &config), "CLOCK BEHIND");
-        assert_eq!(get_sync_status(10, &config), "CLOCK BEHIND");
+        assert_eq!(get_sync_status(9, &config), "CLOCK AHEAD");
+        assert_eq!(get_sync_status(10, &config), "CLOCK AHEAD");
         assert_eq!(get_sync_status(11, &config), "CLOCK AHEAD");
         assert_eq!(get_sync_status(-9, &config), "CLOCK BEHIND");
         assert_eq!(get_sync_status(-100, &config), "CLOCK BEHIND");
