@@ -39,19 +39,17 @@ pub fn ntp_service_toggle(start: bool) {
 
 pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Local> {
     let today_local = Local::now().date_naive();
-    // Calculate total milliseconds including fractional frames
-    let total_ms = ((frame.hours as f64 * 3600.0 + 
-                    frame.minutes as f64 * 60.0 + 
-                    frame.seconds as f64 + 
-                    frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
-    
-    let seconds = total_ms / 1000 % 60;
-    let minutes = (total_ms / 60000) % 60;
-    let hours = (total_ms / 3600000) % 24;
-    let ms_component = total_ms % 1000;
-    
-    let timecode = NaiveTime::from_hms_milli_opt(hours, minutes, seconds, ms_component)
-        .expect("Invalid LTC timecode");
+
+    // Calculate millisecond component from frames with high precision, keeping H:M:S as integers.
+    let ms_from_frames = (frame.frames as f64 / frame.frame_rate * 1000.0).round() as u32;
+
+    let timecode = NaiveTime::from_hms_milli_opt(
+        frame.hours,
+        frame.minutes,
+        frame.seconds,
+        ms_from_frames,
+    )
+    .expect("Invalid LTC timecode");
 
     let naive_dt = today_local.and_time(timecode);
     let mut dt_local = Local
