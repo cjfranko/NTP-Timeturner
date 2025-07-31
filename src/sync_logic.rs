@@ -32,6 +32,7 @@ impl LtcFrame {
     /// Compare just HH:MM:SS against local time.
     pub fn matches_system_time(&self) -> bool {
         let local = Local::now();
+        // We only compare hours, minutes and seconds - frames are not considered in this comparison
         local.hour() == self.hours
             && local.minute() == self.minutes
             && local.second() == self.seconds
@@ -308,6 +309,54 @@ mod tests {
             "IN SYNC",
             "Status should update after throttle period"
         );
+    }
+
+    #[test]
+    fn test_average_frames_with_different_framerates() {
+        let mut state = LtcState::new();
+        state.record_offset(60); // average jitter is 60ms
+
+        // Test with 25fps
+        state.latest = Some(LtcFrame {
+            status: "LOCK".to_string(),
+            hours: 1,
+            minutes: 1,
+            seconds: 1,
+            frames: 0,
+            frame_rate: 25.0,
+            timestamp: Utc::now(),
+        });
+        // ms_per_frame = 1000.0 / 25.0 = 40ms.
+        // average_frames = round(60 / 40) = round(1.5) = 2 frames
+        assert_eq!(state.average_frames(), 2);
+
+        // Test with 24fps
+        state.latest = Some(LtcFrame {
+            status: "LOCK".to_string(),
+            hours: 1,
+            minutes: 1,
+            seconds: 1,
+            frames: 0,
+            frame_rate: 24.0,
+            timestamp: Utc::now(),
+        });
+        // ms_per_frame = 1000.0 / 24.0 = 41.666...ms
+        // average_frames = round(60 / 41.666) = round(1.44) = 1 frame
+        assert_eq!(state.average_frames(), 1);
+
+        // Test with 29.97fps
+        state.latest = Some(LtcFrame {
+            status: "LOCK".to_string(),
+            hours: 1,
+            minutes: 1,
+            seconds: 1,
+            frames: 0,
+            frame_rate: 29.97,
+            timestamp: Utc::now(),
+        });
+        // ms_per_frame = 1000.0 / 29.97 = 33.366...ms
+        // average_frames = round(60 / 33.366) = round(1.798) = 2 frames
+        assert_eq!(state.average_frames(), 2);
     }
 
     #[test]

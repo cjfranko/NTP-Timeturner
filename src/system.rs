@@ -39,8 +39,18 @@ pub fn ntp_service_toggle(start: bool) {
 
 pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Local> {
     let today_local = Local::now().date_naive();
-    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
-    let timecode = NaiveTime::from_hms_milli_opt(frame.hours, frame.minutes, frame.seconds, ms)
+    // Calculate total milliseconds including fractional frames
+    let total_ms = ((frame.hours as f64 * 3600.0 + 
+                    frame.minutes as f64 * 60.0 + 
+                    frame.seconds as f64 + 
+                    frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
+    
+    let seconds = total_ms / 1000 % 60;
+    let minutes = (total_ms / 60000) % 60;
+    let hours = (total_ms / 3600000) % 24;
+    let ms_component = total_ms % 1000;
+    
+    let timecode = NaiveTime::from_hms_milli_opt(hours, minutes, seconds, ms_component)
         .expect("Invalid LTC timecode");
 
     let naive_dt = today_local.and_time(timecode);
@@ -234,6 +244,46 @@ mod tests {
         assert_eq!(target_time.minute(), 15);
         assert_eq!(target_time.second(), 19);
         assert_eq!(target_time.nanosecond(), 920_000_000);
+    }
+
+    #[test]
+    fn test_calculate_target_time_different_framerates() {
+        let config = Config::default();
+
+        // 25fps, 12 frames -> 480ms.
+        let mut frame = get_test_frame(10, 20, 30, 12);
+        let target_time_25 = calculate_target_time(&frame, &config);
+        assert_eq!(target_time_25.hour(), 10);
+        assert_eq!(target_time_25.minute(), 20);
+        assert_eq!(target_time_25.second(), 30);
+        assert_eq!(target_time_25.nanosecond(), 480_000_000);
+
+        // 24fps, 12 frames -> 500ms
+        frame.frame_rate = 24.0;
+        let target_time_24 = calculate_target_time(&frame, &config);
+        assert_eq!(target_time_24.hour(), 10);
+        assert_eq!(target_time_24.minute(), 20);
+        assert_eq!(target_time_24.second(), 30);
+        assert_eq!(target_time_24.nanosecond(), 500_000_000);
+
+        // 29.97fps, 15 frames -> 501ms
+        frame.frame_rate = 29.97;
+        frame.frames = 15;
+        // (15 / 29.97) * 1000 = 500.500... -> round() -> 501
+        let target_time_2997 = calculate_target_time(&frame, &config);
+        assert_eq!(target_time_2997.hour(), 10);
+        assert_eq!(target_time_2997.minute(), 20);
+        assert_eq!(target_time_2997.second(), 30);
+        assert_eq!(target_time_2997.nanosecond(), 501_000_000);
+
+        // 30fps, 15 frames -> 500ms
+        frame.frame_rate = 30.0;
+        // frames is still 15
+        let target_time_30 = calculate_target_time(&frame, &config);
+        assert_eq!(target_time_30.hour(), 10);
+        assert_eq!(target_time_30.minute(), 20);
+        assert_eq!(target_time_30.second(), 30);
+        assert_eq!(target_time_30.nanosecond(), 500_000_000);
     }
 
     #[test]
