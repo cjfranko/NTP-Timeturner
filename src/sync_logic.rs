@@ -32,6 +32,7 @@ impl LtcFrame {
     /// Compare just HH:MM:SS against local time.
     pub fn matches_system_time(&self) -> bool {
         let local = Local::now();
+        // We only compare hours, minutes and seconds - frames are not considered in this comparison
         local.hour() == self.hours
             && local.minute() == self.minutes
             && local.second() == self.seconds

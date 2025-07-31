@@ -101,22 +101,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 let s = parseInt(tcParts[2], 10);
                 let f = parseInt(tcParts[3], 10);
 
+                const frameRateInt = Math.round(frameRate);
                 const msPerFrame = 1000.0 / frameRate;
                 const elapsedFrames = Math.floor(elapsedMs / msPerFrame);
 
-                f += elapsedFrames;
+                // Compute total seconds including fractional part
+                let totalSeconds = h * 3600 + m * 60 + s + f / frameRateInt;
+                totalSeconds += elapsedMs / 1000.0;
 
-                const frameRateInt = Math.round(frameRate);
+                // Convert back to components
+                let newSeconds = Math.floor(totalSeconds);
+                f = Math.round((totalSeconds - newSeconds) * frameRateInt) % frameRateInt;
 
-                s += Math.floor(f / frameRateInt);
-                f %= frameRateInt;
-
-                m += Math.floor(s / 60);
-                s %= 60;
-
-                h += Math.floor(m / 60);
-                m %= 60;
-
+                h = Math.floor(newSeconds / 3600);
+                newSeconds %= 3600;
+                m = Math.floor(newSeconds / 60);
+                s = Math.floor(newSeconds % 60);
                 h %= 24;
 
                 statusElements.ltcTimecode.textContent =
