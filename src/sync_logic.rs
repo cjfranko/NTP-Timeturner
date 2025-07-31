@@ -348,8 +348,8 @@ mod tests {
         assert_eq!(get_sync_status(-100, &config), "CLOCK BEHIND");
 
         // Test auto-sync status
-        // config.auto_sync_enabled = true;
-        // assert_eq!(get_sync_status(0, &config), "IN SYNC");
+        config.auto_sync_enabled = true;
+        assert_eq!(get_sync_status(0, &config), "IN SYNC");
 
         // Test TIMETURNING status takes precedence
         config.timeturner_offset = TimeturnerOffset { hours: 1, minutes: 0, seconds: 0, frames: 0, milliseconds: 0 };
