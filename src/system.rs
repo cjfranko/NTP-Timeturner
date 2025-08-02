@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::sync_logic::LtcFrame;
 use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveTime, TimeZone};
+use num_rational::Ratio;
 use std::process::Command;
 
 /// Check if Chrony is active
@@ -39,7 +40,8 @@ pub fn ntp_service_toggle(start: bool) {
 
 pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Local> {
     let today_local = Local::now().date_naive();
-    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
+    let ms_ratio = Ratio::new(frame.frames as i64 * 1000, 1) / frame.frame_rate;
+    let ms = ms_ratio.round().to_integer() as u32;
     let timecode = NaiveTime::from_hms_milli_opt(frame.hours, frame.minutes, frame.seconds, ms)
         .expect("Invalid LTC timecode");
 
@@ -56,7 +58,8 @@ pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Loca
         + ChronoDuration::minutes(offset.minutes)
         + ChronoDuration::seconds(offset.seconds);
     // Frame offset needs to be converted to milliseconds
-    let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
+    let frame_offset_ms_ratio = Ratio::new(offset.frames * 1000, 1) / frame.frame_rate;
+    let frame_offset_ms = frame_offset_ms_ratio.round().to_integer();
     dt_local + ChronoDuration::milliseconds(frame_offset_ms + offset.milliseconds)
 }
 
@@ -163,6 +166,7 @@ mod tests {
     use super::*;
     use crate::config::TimeturnerOffset;
     use chrono::{Timelike, Utc};
+    use num_rational::Ratio;
 
     // Helper to create a test frame
     fn get_test_frame(h: u32, m: u32, s: u32, f: u32) -> LtcFrame {
@@ -172,7 +176,7 @@ mod tests {
             minutes: m,
             seconds: s,
             frames: f,
-            frame_rate: 25.0,
+            frame_rate: Ratio::new(25, 1),
             timestamp: Utc::now(),
         }
     }

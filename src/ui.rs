@@ -19,9 +19,11 @@ use crossterm::{
 };
 
 use crate::config::Config;
-use get_if_addrs::get_if_addrs;
 use crate::sync_logic::{get_jitter_status, get_sync_status, LtcState};
 use crate::system;
+use get_if_addrs::get_if_addrs;
+use num_rational::Ratio;
+use num_traits::ToPrimitive;
 
 
 pub fn start_ui(
@@ -82,8 +84,9 @@ pub fn start_ui(
         if last_delta_update.elapsed() >= Duration::from_secs(1) {
             cached_delta_ms = avg_delta;
             if let Some(frame) = &state.lock().unwrap().latest {
-                let frame_ms = 1000.0 / frame.frame_rate;
-                cached_delta_frames = ((avg_delta as f64 / frame_ms).round()) as i64;
+                let delta_ms_ratio = Ratio::new(avg_delta, 1);
+                let frames_ratio = delta_ms_ratio * frame.frame_rate / Ratio::new(1000, 1);
+                cached_delta_frames = frames_ratio.round().to_integer();
             } else {
                 cached_delta_frames = 0;
             }
@@ -104,7 +107,7 @@ pub fn start_ui(
                 None => "LTC Timecode     : …".to_string(),
             };
             let fr_str = match opt {
-                Some(f) => format!("Frame Rate       : {:.2}fps", f.frame_rate),
+                Some(f) => format!("Frame Rate       : {:.2}fps", f.frame_rate.to_f64().unwrap_or(0.0)),
                 None => "Frame Rate       : …".to_string(),
             };
 

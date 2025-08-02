@@ -129,8 +129,9 @@ impl LtcState {
     /// Convert average jitter into frames (rounded).
     pub fn average_frames(&self) -> i64 {
         if let Some(frame) = &self.latest {
-            let ms_per_frame = 1000.0 / frame.frame_rate;
-            (self.average_jitter() as f64 / ms_per_frame).round() as i64
+            let jitter_ms_ratio = Ratio::new(self.average_jitter(), 1);
+            let frames_ratio = jitter_ms_ratio * frame.frame_rate / Ratio::new(1000, 1);
+            frames_ratio.round().to_integer()
         } else {
             0
         }
@@ -192,7 +193,7 @@ mod tests {
             minutes: m,
             seconds: s,
             frames: 0,
-            frame_rate: 25.0,
+            frame_rate: Ratio::new(25, 1),
             timestamp: Utc::now(),
         }
     }
