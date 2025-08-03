@@ -40,12 +40,32 @@ pub fn ntp_service_toggle(start: bool) {
 
 pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Local> {
     let today_local = Local::now().date_naive();
-    let ms_ratio = Ratio::new(frame.frames as i64 * 1000, 1) / frame.frame_rate;
-    let ms = ms_ratio.round().to_integer() as u32;
-    let timecode = NaiveTime::from_hms_milli_opt(frame.hours, frame.minutes, frame.seconds, ms)
-        .expect("Invalid LTC timecode");
 
-    let naive_dt = today_local.and_time(timecode);
+    // Total seconds from timecode components
+    let timecode_secs =
+        frame.hours as i64 * 3600 + frame.minutes as i64 * 60 + frame.seconds as i64;
+
+    // Total duration in seconds as a rational number, including frames
+    let total_duration_secs =
+        Ratio::new(timecode_secs, 1) + Ratio::new(frame.frames as i64, 1) / frame.frame_rate;
+
+    // For fractional frame rates (23.98, 29.97), timecode runs slower than wall clock.
+    // We need to scale the timecode duration up to get wall clock time.
+    // The scaling factor is 1001/1000.
+    let scaled_duration_secs = if *frame.frame_rate.denom() == 1001 {
+        total_duration_secs * Ratio::new(1001, 1000)
+    } else {
+        total_duration_secs
+    };
+
+    // Convert to milliseconds
+    let total_ms = (scaled_duration_secs * Ratio::new(1000, 1))
+        .round()
+        .to_integer();
+
+    let naive_midnight = today_local.and_hms_opt(0, 0, 0).unwrap();
+    let naive_dt = naive_midnight + ChronoDuration::milliseconds(total_ms);
+
     let mut dt_local = Local
         .from_local_datetime(&naive_dt)
         .single()
