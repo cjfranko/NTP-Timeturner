@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::sync_logic::LtcFrame;
 use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveTime, TimeZone};
+use num_rational::Ratio;
 use std::process::Command;
 
 /// Check if Chrony is active
@@ -39,11 +40,32 @@ pub fn ntp_service_toggle(start: bool) {
 
 pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Local> {
     let today_local = Local::now().date_naive();
-    let ms = ((frame.frames as f64 / frame.frame_rate) * 1000.0).round() as u32;
-    let timecode = NaiveTime::from_hms_milli_opt(frame.hours, frame.minutes, frame.seconds, ms)
-        .expect("Invalid LTC timecode");
 
-    let naive_dt = today_local.and_time(timecode);
+    // Total seconds from timecode components
+    let timecode_secs =
+        frame.hours as i64 * 3600 + frame.minutes as i64 * 60 + frame.seconds as i64;
+
+    // Total duration in seconds as a rational number, including frames
+    let total_duration_secs =
+        Ratio::new(timecode_secs, 1) + Ratio::new(frame.frames as i64, 1) / frame.frame_rate;
+
+    // For fractional frame rates (23.98, 29.97), timecode runs slower than wall clock.
+    // We need to scale the timecode duration up to get wall clock time.
+    // The scaling factor is 1001/1000.
+    let scaled_duration_secs = if *frame.frame_rate.denom() == 1001 {
+        total_duration_secs * Ratio::new(1001, 1000)
+    } else {
+        total_duration_secs
+    };
+
+    // Convert to milliseconds
+    let total_ms = (scaled_duration_secs * Ratio::new(1000, 1))
+        .round()
+        .to_integer();
+
+    let naive_midnight = today_local.and_hms_opt(0, 0, 0).unwrap();
+    let naive_dt = naive_midnight + ChronoDuration::milliseconds(total_ms);
+
     let mut dt_local = Local
         .from_local_datetime(&naive_dt)
         .single()
@@ -56,7 +78,8 @@ pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Loca
         + ChronoDuration::minutes(offset.minutes)
         + ChronoDuration::seconds(offset.seconds);
     // Frame offset needs to be converted to milliseconds
-    let frame_offset_ms = (offset.frames as f64 / frame.frame_rate * 1000.0).round() as i64;
+    let frame_offset_ms_ratio = Ratio::new(offset.frames * 1000, 1) / frame.frame_rate;
+    let frame_offset_ms = frame_offset_ms_ratio.round().to_integer();
     dt_local + ChronoDuration::milliseconds(frame_offset_ms + offset.milliseconds)
 }
 
@@ -163,6 +186,7 @@ mod tests {
     use super::*;
     use crate::config::TimeturnerOffset;
     use chrono::{Timelike, Utc};
+    use num_rational::Ratio;
 
     // Helper to create a test frame
     fn get_test_frame(h: u32, m: u32, s: u32, f: u32) -> LtcFrame {
@@ -172,7 +196,7 @@ mod tests {
             minutes: m,
             seconds: s,
             frames: f,
-            frame_rate: 25.0,
+            frame_rate: Ratio::new(25, 1),
             timestamp: Utc::now(),
         }
     }

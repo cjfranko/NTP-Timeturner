@@ -11,6 +11,8 @@ use std::sync::{Arc, Mutex};
 use crate::config::{self, Config};
 use crate::sync_logic::{self, LtcState};
 use crate::system;
+use num_rational::Ratio;
+use num_traits::ToPrimitive;
 
 // Data structure for the main status response
 #[derive(Serialize, Deserialize)]
@@ -48,7 +50,7 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
         format!("{:02}:{:02}:{:02}:{:02}", f.hours, f.minutes, f.seconds, f.frames)
     });
     let frame_rate = state.latest.as_ref().map_or("…".to_string(), |f| {
-        format!("{:.2}fps", f.frame_rate)
+        format!("{:.2}fps", f.frame_rate.to_f64().unwrap_or(0.0))
     });
 
     let now_local = Local::now();
@@ -64,8 +66,9 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
     let avg_delta = state.get_ewma_clock_delta();
     let mut delta_frames = 0;
     if let Some(frame) = &state.latest {
-        let frame_ms = 1000.0 / frame.frame_rate;
-        delta_frames = ((avg_delta as f64 / frame_ms).round()) as i64;
+        let delta_ms_ratio = Ratio::new(avg_delta, 1);
+        let frames_ratio = delta_ms_ratio * frame.frame_rate / Ratio::new(1000, 1);
+        delta_frames = frames_ratio.round().to_integer();
     }
 
     let sync_status = sync_logic::get_sync_status(avg_delta, &config);
@@ -239,7 +242,7 @@ mod tests {
                 minutes: 2,
                 seconds: 3,
                 frames: 4,
-                frame_rate: 25.0,
+                frame_rate: Ratio::new(25, 1),
                 timestamp: Utc::now(),
             }),
             lock_count: 10,

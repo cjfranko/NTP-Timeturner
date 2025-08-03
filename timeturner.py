@@ -9,10 +9,11 @@ import threading
 import queue
 import json
 from collections import deque
+from fractions import Fraction
 
 SERIAL_PORT = None
 BAUD_RATE = 115200
-FRAME_RATE = 25.0
+FRAME_RATE = Fraction(25, 1)
 CONFIG_PATH = "config.json"
 
 sync_pending = False
@@ -29,6 +30,14 @@ sync_enabled = False
 
 last_match_check = 0
 timecode_match_status = "UNKNOWN"
+
+def framerate_str_to_fraction(s):
+    if s == "23.98": return Fraction(24000, 1001)
+    if s == "24.00": return Fraction(24, 1)
+    if s == "25.00": return Fraction(25, 1)
+    if s == "29.97": return Fraction(30000, 1001)
+    if s == "30.00": return Fraction(30, 1)
+    return None
 
 def load_config():
     global hardware_offset_ms
@@ -50,13 +59,16 @@ def parse_ltc_line(line):
     if not match:
         return None
     status, hh, mm, ss, ff, fps = match.groups()
+    rate = framerate_str_to_fraction(fps)
+    if not rate:
+        return None
     return {
         "status": status,
         "hours": int(hh),
         "minutes": int(mm),
         "seconds": int(ss),
         "frames": int(ff),
-        "frame_rate": float(fps)
+        "frame_rate": rate
     }
 
 def serial_thread(port, baud, q):
@@ -154,7 +166,7 @@ def run_curses(stdscr):
                 parsed, arrival_time = latest_ltc
                 stdscr.addstr(3, 2, f"LTC Status   : {parsed['status']}")
                 stdscr.addstr(4, 2, f"LTC Timecode : {parsed['hours']:02}:{parsed['minutes']:02}:{parsed['seconds']:02}:{parsed['frames']:02}")
-                stdscr.addstr(5, 2, f"Frame Rate   : {FRAME_RATE:.2f}fps")
+                stdscr.addstr(5, 2, f"Frame Rate   : {float(FRAME_RATE):.2f}fps")
                 stdscr.addstr(6, 2, f"System Clock : {format_time(get_system_time())}")
 
                 if ltc_locked and sync_enabled and offset_history:

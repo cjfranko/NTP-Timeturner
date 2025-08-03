@@ -1,9 +1,21 @@
 ﻿use crate::config::Config;
 use chrono::{DateTime, Local, Timelike, Utc};
+use num_rational::Ratio;
 use regex::Captures;
 use std::collections::VecDeque;
 
 const EWMA_ALPHA: f64 = 0.1;
+
+fn get_frame_rate_ratio(rate_str: &str) -> Option<Ratio<i64>> {
+    match rate_str {
+        "23.98" => Some(Ratio::new(24000, 1001)),
+        "24.00" => Some(Ratio::new(24, 1)),
+        "25.00" => Some(Ratio::new(25, 1)),
+        "29.97" => Some(Ratio::new(30000, 1001)),
+        "30.00" => Some(Ratio::new(30, 1)),
+        _ => None,
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct LtcFrame {
@@ -12,7 +24,7 @@ pub struct LtcFrame {
     pub minutes: u32,
     pub seconds: u32,
     pub frames: u32,
-    pub frame_rate: f64,
+    pub frame_rate: Ratio<i64>,
     pub timestamp: DateTime<Utc>, // arrival stamp
 }
 
@@ -24,7 +36,7 @@ impl LtcFrame {
             minutes: caps[3].parse().ok()?,
             seconds: caps[4].parse().ok()?,
             frames: caps[5].parse().ok()?,
-            frame_rate: caps[6].parse().ok()?,
+            frame_rate: get_frame_rate_ratio(&caps[6])?,
             timestamp,
         })
     }
@@ -129,8 +141,9 @@ impl LtcState {
     /// Convert average jitter into frames (rounded).
     pub fn average_frames(&self) -> i64 {
         if let Some(frame) = &self.latest {
-            let ms_per_frame = 1000.0 / frame.frame_rate;
-            (self.average_jitter() as f64 / ms_per_frame).round() as i64
+            let jitter_ms_ratio = Ratio::new(self.average_jitter(), 1);
+            let frames_ratio = jitter_ms_ratio * frame.frame_rate / Ratio::new(1000, 1);
+            frames_ratio.round().to_integer()
         } else {
             0
         }
@@ -192,7 +205,7 @@ mod tests {
             minutes: m,
             seconds: s,
             frames: 0,
-            frame_rate: 25.0,
+            frame_rate: Ratio::new(25, 1),
             timestamp: Utc::now(),
         }
     }
