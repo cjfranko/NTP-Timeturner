@@ -60,6 +60,7 @@ mod tests {
     use super::*;
     use std::sync::mpsc;
     use crate::sync_logic::LtcState;
+    use num_rational::Ratio;
     use regex::Regex;
 
     fn get_ltc_regex() -> Regex {
@@ -119,7 +120,7 @@ mod tests {
         assert_eq!(st.free_count, 1);
         let received_frame = rx.try_recv().unwrap();
         assert_eq!(received_frame.status, "FREE");
-        assert_eq!(received_frame.frame_rate, 29.97);
+        assert_eq!(received_frame.frame_rate, Ratio::new(30000, 1001));
     }
 
     #[test]

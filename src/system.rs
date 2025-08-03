@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::sync_logic::LtcFrame;
-use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveTime, TimeZone};
+use chrono::{DateTime, Duration as ChronoDuration, Local, TimeZone};
 use num_rational::Ratio;
 use std::process::Command;
 
