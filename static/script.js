@@ -98,9 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Animate LTC Timecode - only if status is LOCK
-        if (lastApiData.ltc_status === 'LOCK' && lastApiData.ltc_timecode && lastApiData.ltc_timecode.includes(':') && lastApiData.frame_rate) {
-            const tcParts = lastApiData.ltc_timecode.split(':');
+        if (lastApiData.ltc_status === 'LOCK' && lastApiData.ltc_timecode && lastApiData.ltc_timecode.match(/[:;]/) && lastApiData.frame_rate) {
+            const separator = lastApiData.ltc_timecode.includes(';') ? ';' : ':';
+            const tcParts = lastApiData.ltc_timecode.split(/[:;]/);
             const frameRate = parseFloat(lastApiData.frame_rate);
+
             if (tcParts.length === 4 && !isNaN(frameRate) && frameRate > 0) {
                 let h = parseInt(tcParts[0], 10);
                 let m = parseInt(tcParts[1], 10);
@@ -126,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 h %= 24;
 
                 statusElements.ltcTimecode.textContent =
-                    `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
+                    `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}${separator}${String(f).padStart(2, '0')}`;
             }
         }
     }
