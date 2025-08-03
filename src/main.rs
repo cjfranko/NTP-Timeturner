@@ -15,6 +15,7 @@ use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
 use clap::Parser;
 use daemonize::Daemonize;
+use serialport;
 
 use std::{
     fs,
@@ -70,6 +71,20 @@ fn ensure_config() {
     }
 }
 
+fn find_serial_port() -> Option<String> {
+    if let Ok(ports) = serialport::available_ports() {
+        for p in ports {
+            if p.port_name.starts_with("/dev/ttyACM")
+                || p.port_name.starts_with("/dev/ttyAMA")
+                || p.port_name.starts_with("/dev/ttyUSB")
+            {
+                return Some(p.port_name);
+            }
+        }
+    }
+    None
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     // This must be called before any logging statements.
@@ -110,13 +125,23 @@ async fn main() {
     // 3️⃣ Shared state for UI and serial reader
     let ltc_state = Arc::new(Mutex::new(LtcState::new()));
 
-    // 4️⃣ Spawn the serial reader thread
+    // 4️⃣ Find serial port and spawn the serial reader thread
+    let serial_port_path = match find_serial_port() {
+        Some(port) => port,
+        None => {
+            log::error!("❌ No serial port found. Please connect the Teensy device.");
+            return;
+        }
+    };
+    log::info!("Found serial port: {}", serial_port_path);
+
     {
         let tx_clone = tx.clone();
         let state_clone = ltc_state.clone();
+        let port_clone = serial_port_path.clone();
         thread::spawn(move || {
             start_serial_thread(
-                "/dev/ttyACM0",
+                &port_clone,
                 115200,
                 tx_clone,
                 state_clone,
@@ -132,7 +157,7 @@ async fn main() {
         log::info!("🖥️ UI thread launched");
         let ui_state = ltc_state.clone();
         let config_clone = config.clone();
-        let port = "/dev/ttyACM0".to_string();
+        let port = serial_port_path;
         thread::spawn(move || {
             start_ui(ui_state, port, config_clone);
         });
