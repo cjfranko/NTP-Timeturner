@@ -242,6 +242,7 @@ mod tests {
                 minutes: 2,
                 seconds: 3,
                 frames: 4,
+                is_drop_frame: false,
                 frame_rate: Ratio::new(25, 1),
                 timestamp: Utc::now(),
             }),

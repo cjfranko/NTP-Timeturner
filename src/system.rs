@@ -49,10 +49,10 @@ pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Loca
     let total_duration_secs =
         Ratio::new(timecode_secs, 1) + Ratio::new(frame.frames as i64, 1) / frame.frame_rate;
 
-    // For fractional frame rates (23.98, 29.97), timecode runs slower than wall clock.
+    // For non-drop-frame fractional rates (23.98, 29.97), timecode runs slower than wall clock.
     // We need to scale the timecode duration up to get wall clock time.
-    // The scaling factor is 1001/1000.
-    let scaled_duration_secs = if *frame.frame_rate.denom() == 1001 {
+    // The scaling factor is 1001/1000. For drop-frame, this isn't necessary.
+    let scaled_duration_secs = if *frame.frame_rate.denom() == 1001 && !frame.is_drop_frame {
         total_duration_secs * Ratio::new(1001, 1000)
     } else {
         total_duration_secs
@@ -196,6 +196,7 @@ mod tests {
             minutes: m,
             seconds: s,
             frames: f,
+            is_drop_frame: false,
             frame_rate: Ratio::new(25, 1),
             timestamp: Utc::now(),
         }
