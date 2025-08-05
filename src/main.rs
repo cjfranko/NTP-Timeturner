@@ -125,7 +125,7 @@ async fn main() {
                     Ok(pid_str) => {
                         let pid_str = pid_str.trim();
                         log::info!("Found daemon with PID: {}", pid_str);
-                        match std::process::Command::new("kill").arg(pid_str).status() {
+                        match std::process::Command::new("kill").arg("-9").arg(format!("-{}", pid_str)).status() {
                             Ok(status) => {
                                 if status.success() {
                                     log::info!("✅ Daemon stopped successfully.");
