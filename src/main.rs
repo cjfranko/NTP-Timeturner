@@ -36,6 +36,8 @@ struct Args {
 enum Command {
     /// Run as a background daemon providing a web UI.
     Daemon,
+    /// Stop the running daemon process.
+    Kill,
 }
 
 /// Default config content, embedded in the binary.
@@ -91,24 +93,65 @@ async fn main() {
     let log_buffer = logger::setup_logger();
     let args = Args::parse();
 
-    if let Some(Command::Daemon) = &args.command {
-        log::info!("🚀 Starting daemon...");
+    if let Some(command) = &args.command {
+        match command {
+            Command::Daemon => {
+                log::info!("🚀 Starting daemon...");
 
-        // Create files for stdout and stderr in the current directory
-        let stdout = fs::File::create("daemon.out").expect("Could not create daemon.out");
-        let stderr = fs::File::create("daemon.err").expect("Could not create daemon.err");
+                // Create files for stdout and stderr in the current directory
+                let stdout =
+                    fs::File::create("daemon.out").expect("Could not create daemon.out");
+                let stderr =
+                    fs::File::create("daemon.err").expect("Could not create daemon.err");
 
-        let daemonize = Daemonize::new()
-            .pid_file("ntp_timeturner.pid") // Create a PID file
-            .working_directory(".") // Keep the same working directory
-            .stdout(stdout)
-            .stderr(stderr);
+                let daemonize = Daemonize::new()
+                    .pid_file("ntp_timeturner.pid") // Create a PID file
+                    .working_directory(".") // Keep the same working directory
+                    .stdout(stdout)
+                    .stderr(stderr);
 
-        match daemonize.start() {
-            Ok(_) => { /* Process is now daemonized */ }
-            Err(e) => {
-                log::error!("Error daemonizing: {}", e);
-                return; // Exit if daemonization fails
+                match daemonize.start() {
+                    Ok(_) => { /* Process is now daemonized */ }
+                    Err(e) => {
+                        log::error!("Error daemonizing: {}", e);
+                        return; // Exit if daemonization fails
+                    }
+                }
+            }
+            Command::Kill => {
+                log::info!("🛑 Stopping daemon...");
+                let pid_file = "ntp_timeturner.pid";
+                match fs::read_to_string(pid_file) {
+                    Ok(pid_str) => {
+                        let pid_str = pid_str.trim();
+                        log::info!("Found daemon with PID: {}", pid_str);
+                        match std::process::Command::new("kill").arg(pid_str).status() {
+                            Ok(status) => {
+                                if status.success() {
+                                    log::info!("✅ Daemon stopped successfully.");
+                                    if fs::remove_file(pid_file).is_err() {
+                                        log::warn!("Could not remove PID file '{}'. It may need to be removed manually.", pid_file);
+                                    }
+                                } else {
+                                    log::error!("'kill' command failed with status: {}. The daemon may not be running, or you may not have permission to stop it.", status);
+                                    log::warn!("Attempting to remove stale PID file '{}'...", pid_file);
+                                    if fs::remove_file(pid_file).is_ok() {
+                                        log::info!("Removed stale PID file.");
+                                    } else {
+                                        log::warn!("Could not remove PID file.");
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("Failed to execute 'kill' command. Is 'kill' in your PATH? Error: {}", e);
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        log::error!("Could not read PID file '{}'. Is the daemon running in this directory?", pid_file);
+                    }
+                }
+                return;
             }
         }
     }
