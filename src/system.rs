@@ -45,21 +45,20 @@ pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Loca
     let timecode_secs =
         frame.hours as i64 * 3600 + frame.minutes as i64 * 60 + frame.seconds as i64;
 
-    // Total duration in seconds as a rational number, including frames
-    let total_duration_secs =
-        Ratio::new(timecode_secs, 1) + Ratio::new(frame.frames as i64, 1) / frame.frame_rate;
-
     // For non-drop-frame fractional rates (23.98, 29.97), timecode runs slower than wall clock.
-    // We need to scale the timecode duration up to get wall clock time.
-    // The scaling factor is 1001/1000. For drop-frame, this isn't necessary.
-    let scaled_duration_secs = if *frame.frame_rate.denom() == 1001 && !frame.is_drop_frame {
-        total_duration_secs * Ratio::new(1001, 1000)
+    // We must convert the entire timecode to a frame count using the nominal rate (e.g. 30),
+    // and then divide by the true fractional rate to get real wall-clock seconds.
+    // For integer rates or drop-frame, the components can be summed directly as they represent real time.
+    let total_duration_secs = if *frame.frame_rate.denom() == 1001 && !frame.is_drop_frame {
+        let nominal_rate = if *frame.frame_rate.numer() > 25000 { 30 } else { 24 }; // 30 for 29.97, 24 for 23.98
+        let total_frames = timecode_secs * nominal_rate + frame.frames as i64;
+        Ratio::new(total_frames, 1) / frame.frame_rate
     } else {
-        total_duration_secs
+        Ratio::new(timecode_secs, 1) + Ratio::new(frame.frames as i64, 1) / frame.frame_rate
     };
 
     // Convert to milliseconds
-    let total_ms = (scaled_duration_secs * Ratio::new(1000, 1))
+    let total_ms = (total_duration_secs * Ratio::new(1000, 1))
         .round()
         .to_integer();
 
