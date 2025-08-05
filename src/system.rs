@@ -157,19 +157,20 @@ pub fn nudge_clock(microseconds: i64) -> Result<(), ()> {
 pub fn set_date(date: &str) -> Result<(), ()> {
     #[cfg(target_os = "linux")]
     {
+        let datetime_str = format!("{} 10:00:00", date);
         let success = Command::new("sudo")
             .arg("date")
             .arg("--set")
-            .arg(date)
+            .arg(&datetime_str)
             .status()
             .map(|s| s.success())
             .unwrap_or(false);
 
         if success {
-            log::info!("Set system date to {}", date);
+            log::info!("Set system date and time to {}", datetime_str);
             Ok(())
         } else {
-            log::error!("Failed to set system date");
+            log::error!("Failed to set system date and time");
             Err(())
         }
     }
