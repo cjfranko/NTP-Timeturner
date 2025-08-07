@@ -1,4 +1,39 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const mockApiData = {
+        status: {
+            ltc_status: 'LOCK',
+            ltc_timecode: '10:20:30:00',
+            frame_rate: '25.00',
+            lock_ratio: 99.5,
+            system_clock: '10:20:30.500',
+            system_date: '2025-08-07',
+            ntp_active: true,
+            sync_status: 'IN SYNC',
+            timecode_delta_ms: 5,
+            timecode_delta_frames: 0.125,
+            jitter_status: 'GOOD',
+            interfaces: ['192.168.1.100 (eth0)', '10.0.0.5 (wlan0)'],
+        },
+        config: {
+            hardwareOffsetMs: 10,
+            autoSyncEnabled: true,
+            defaultNudgeMs: 2,
+            timeturnerOffset: {
+                hours: 1,
+                minutes: 2,
+                seconds: 3,
+                frames: 4,
+                milliseconds: 50
+            },
+        },
+        logs: [
+            '2025-08-07 10:20:30 [INFO] Starting up...',
+            '2025-08-07 10:20:31 [INFO] Found serial device on /dev/ttyACM0.',
+            '2025-08-07 10:20:32 [INFO] LTC LOCK detected. Frame rate: 25.00fps.',
+            '2025-08-07 10:20:35 [INFO] Initial sync complete. Clock adjusted by -15ms.',
+        ]
+    };
+
     let lastApiData = null;
     let lastApiFetchTime = null;
 
@@ -147,36 +182,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchStatus() {
-        try {
-            const response = await fetch('/api/status');
-            if (!response.ok) throw new Error('Failed to fetch status');
-            const data = await response.json();
-            updateStatus(data);
-            lastApiData = data;
-            lastApiFetchTime = new Date();
-        } catch (error) {
-            console.error('Error fetching status:', error);
-            lastApiData = null;
-            lastApiFetchTime = null;
-        }
+        // Mock implementation to allow UI development without a running backend.
+        const data = mockApiData.status;
+        updateStatus(data);
+        lastApiData = data;
+        lastApiFetchTime = new Date();
     }
 
     async function fetchConfig() {
-        try {
-            const response = await fetch('/api/config');
-            if (!response.ok) throw new Error('Failed to fetch config');
-            const data = await response.json();
-            hwOffsetInput.value = data.hardwareOffsetMs;
-            autoSyncCheckbox.checked = data.autoSyncEnabled;
-            offsetInputs.h.value = data.timeturnerOffset.hours;
-            offsetInputs.m.value = data.timeturnerOffset.minutes;
-            offsetInputs.s.value = data.timeturnerOffset.seconds;
-            offsetInputs.f.value = data.timeturnerOffset.frames;
-            offsetInputs.ms.value = data.timeturnerOffset.milliseconds || 0;
-            nudgeValueInput.value = data.defaultNudgeMs;
-        } catch (error) {
-            console.error('Error fetching config:', error);
-        }
+        // Mock implementation
+        const data = mockApiData.config;
+        hwOffsetInput.value = data.hardwareOffsetMs;
+        autoSyncCheckbox.checked = data.autoSyncEnabled;
+        offsetInputs.h.value = data.timeturnerOffset.hours;
+        offsetInputs.m.value = data.timeturnerOffset.minutes;
+        offsetInputs.s.value = data.timeturnerOffset.seconds;
+        offsetInputs.f.value = data.timeturnerOffset.frames;
+        offsetInputs.ms.value = data.timeturnerOffset.milliseconds || 0;
+        nudgeValueInput.value = data.defaultNudgeMs;
     }
 
     async function saveConfig() {
@@ -193,69 +216,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        try {
-            const response = await fetch('/api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config),
-            });
-            if (!response.ok) throw new Error('Failed to save config');
-            alert('Configuration saved.');
-        } catch (error) {
-            console.error('Error saving config:', error);
-            alert('Error saving configuration.');
-        }
+        // Mock implementation
+        console.log('Saving mock config:', config);
+        alert('Configuration saved (mock).');
     }
 
     async function fetchLogs() {
-        try {
-            const response = await fetch('/api/logs');
-            if (!response.ok) throw new Error('Failed to fetch logs');
-            const logs = await response.json();
-            statusElements.logs.textContent = logs.join('\n');
-            // Auto-scroll to the bottom
-            statusElements.logs.scrollTop = statusElements.logs.scrollHeight;
-        } catch (error) {
-            console.error('Error fetching logs:', error);
-            statusElements.logs.textContent = 'Error fetching logs.';
-        }
+        // Mock implementation
+        const logs = mockApiData.logs;
+        statusElements.logs.textContent = logs.join('\n');
+        // Auto-scroll to the bottom
+        statusElements.logs.scrollTop = statusElements.logs.scrollHeight;
     }
 
     async function triggerManualSync() {
         syncMessage.textContent = 'Issuing sync command...';
-        try {
-            const response = await fetch('/api/sync', { method: 'POST' });
-            const data = await response.json();
-            if (response.ok) {
-                syncMessage.textContent = `Success: ${data.message}`;
-            } else {
-                syncMessage.textContent = `Error: ${data.message}`;
-            }
-        } catch (error) {
-            console.error('Error triggering sync:', error);
-            syncMessage.textContent = 'Failed to send sync command.';
-        }
+        // Mock implementation
+        setTimeout(() => {
+            syncMessage.textContent = 'Success: Manual sync triggered (mock).';
+        }, 1000);
         setTimeout(() => { syncMessage.textContent = ''; }, 5000);
     }
 
     async function nudgeClock(ms) {
         nudgeMessage.textContent = 'Nudging clock...';
-        try {
-            const response = await fetch('/api/nudge_clock', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ microseconds: ms * 1000 }),
-            });
-            const data = await response.json();
-            if (response.ok) {
-                nudgeMessage.textContent = `Success: ${data.message}`;
-            } else {
-                nudgeMessage.textContent = `Error: ${data.message}`;
-            }
-        } catch (error) {
-            console.error('Error nudging clock:', error);
-            nudgeMessage.textContent = 'Failed to send nudge command.';
-        }
+        // Mock implementation
+        setTimeout(() => {
+            nudgeMessage.textContent = `Success: Clock nudged by ${ms}ms (mock).`;
+        }, 500);
         setTimeout(() => { nudgeMessage.textContent = ''; }, 3000);
     }
 
@@ -267,24 +255,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         dateMessage.textContent = 'Setting date...';
-        try {
-            const response = await fetch('/api/set_date', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: date }),
-            });
-            const data = await response.json();
-            if (response.ok) {
-                dateMessage.textContent = `Success: ${data.message}`;
-                // Fetch status again to update the displayed date immediately
+        // Mock implementation
+        setTimeout(() => {
+            dateMessage.textContent = `Success: Date set to ${date} (mock).`;
+            // To make it look real, we can update the system date display
+            if (lastApiData) {
+                mockApiData.status.system_date = date;
                 fetchStatus();
-            } else {
-                dateMessage.textContent = `Error: ${data.message}`;
             }
-        } catch (error) {
-            console.error('Error setting date:', error);
-            dateMessage.textContent = 'Failed to send date command.';
-        }
+        }, 1000);
         setTimeout(() => { dateMessage.textContent = ''; }, 5000);
     }
 
@@ -305,8 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchConfig();
     fetchLogs();
 
-    // Refresh data every 2 seconds
-    setInterval(fetchStatus, 2000);
-    setInterval(fetchLogs, 2000);
+    // Refresh data every 2 seconds - MOCKED
+    // setInterval(fetchStatus, 2000);
+    // setInterval(fetchLogs, 2000);
     setInterval(animateClocks, 50); // High-frequency clock animation
 });
