@@ -99,10 +99,15 @@ button:hover {
     color: #555;
 }
 
+#ltc-status, #ntp-active, #sync-status, #jitter-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
 .status-icon {
-    height: 1em;
-    vertical-align: middle;
-    margin-right: 0.5em;
+    width: 60px;
+    height: 60px;
 }
 
 /* Status-specific colors */
