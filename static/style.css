@@ -95,3 +95,6 @@ button:hover {
 #jitter-status.bad { font-weight: bold; color: #dc3545; }
 #ntp-active.active { font-weight: bold; color: #28a745; }
 #ntp-active.inactive { font-weight: bold; color: #dc3545; }
+
+#ltc-status.lock { font-weight: bold; color: #28a745; }
+#ltc-status.free { font-weight: bold; color: #ffc107; }

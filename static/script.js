@@ -42,7 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateStatus(data) {
         const ltcIconSrc = iconMap.ltcStatus[data.ltc_status] || iconMap.ltcStatus.default;
-        statusElements.ltcStatus.innerHTML = `<img src="${ltcIconSrc}" class="status-icon" alt="${data.ltc_status} icon"> ${data.ltc_status}`;
+        statusElements.ltcStatus.innerHTML = `<img src="${ltcIconSrc}" class="status-icon" alt=""> ${data.ltc_status}`;
+        statusElements.ltcStatus.className = data.ltc_status.toLowerCase();
         statusElements.ltcTimecode.textContent = data.ltc_timecode;
         statusElements.frameRate.textContent = data.frame_rate;
         statusElements.lockRatio.textContent = data.lock_ratio.toFixed(2);
@@ -51,16 +52,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const ntpIconSrc = iconMap.ntpActive[data.ntp_active];
         if (data.ntp_active) {
-            statusElements.ntpActive.innerHTML = `<img src="${ntpIconSrc}" class="status-icon" alt="Active icon"> Active`;
+            statusElements.ntpActive.innerHTML = `<img src="${ntpIconSrc}" class="status-icon" alt=""> Active`;
             statusElements.ntpActive.className = 'active';
         } else {
-            statusElements.ntpActive.innerHTML = `<img src="${ntpIconSrc}" class="status-icon" alt="Inactive icon"> Inactive`;
+            statusElements.ntpActive.innerHTML = `<img src="${ntpIconSrc}" class="status-icon" alt=""> Inactive`;
             statusElements.ntpActive.className = 'inactive';
         }
 
         const syncStatusClass = data.sync_status.replace(/\s+/g, '-').toLowerCase();
         const syncIconSrc = iconMap.syncStatus[data.sync_status] || iconMap.syncStatus.default;
-        statusElements.syncStatus.innerHTML = `<img src="${syncIconSrc}" class="status-icon" alt="${data.sync_status} icon"> ${data.sync_status}`;
+        statusElements.syncStatus.innerHTML = `<img src="${syncIconSrc}" class="status-icon" alt=""> ${data.sync_status}`;
         statusElements.syncStatus.className = syncStatusClass;
 
         statusElements.deltaMs.textContent = data.timecode_delta_ms;
@@ -68,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const jitterStatusClass = data.jitter_status.toLowerCase();
         const jitterIconSrc = iconMap.jitterStatus[data.jitter_status] || iconMap.jitterStatus.default;
-        statusElements.jitterStatus.innerHTML = `<img src="${jitterIconSrc}" class="status-icon" alt="${data.jitter_status} icon"> ${data.jitter_status}`;
+        statusElements.jitterStatus.innerHTML = `<img src="${jitterIconSrc}" class="status-icon" alt=""> ${data.jitter_status}`;
         statusElements.jitterStatus.className = jitterStatusClass;
 
         statusElements.interfaces.innerHTML = '';
