@@ -82,6 +82,12 @@ button:hover {
     color: #555;
 }
 
+.status-icon {
+    height: 1em;
+    vertical-align: middle;
+    margin-right: 0.5em;
+}
+
 /* Status-specific colors */
 #sync-status.in-sync, #jitter-status.good { font-weight: bold; color: #28a745; }
 #sync-status.clock-ahead, #sync-status.clock-behind, #jitter-status.average { font-weight: bold; color: #ffc107; }
