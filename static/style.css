@@ -1,5 +1,10 @@
+@font-face {
+    font-family: 'FuturaStdHeavy';
+    src: url('assets/FuturaStdHeavy.otf') format('opentype');
+}
+
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'FuturaStdHeavy', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: #f4f4f9;
     color: #333;
     margin: 0;
