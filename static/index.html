@@ -24,9 +24,11 @@
             <div class="card">
                 <h2>LTC Status</h2>
                 <p id="ltc-timecode">--:--:--:--</p>
-                <p id="ltc-status"></p>
-                <p id="frame-rate"></p>
-                <p id="lock-ratio"></p>
+                <div class="icon-group">
+                    <span id="ltc-status"></span>
+                    <span id="frame-rate"></span>
+                    <span id="lock-ratio"></span>
+                </div>
             </div>
 
             <!-- System Clock & Sync -->
@@ -34,15 +36,12 @@
                 <h2>System Clock</h2>
                 <p id="system-clock">--:--:--.---</p>
                 <p>Date: <span id="system-date">---- -- --</span></p>
-                <p id="ntp-active"></p>
-                <p id="sync-status"></p>
-            </div>
-
-            <!-- Delta & Jitter -->
-            <div class="card">
-                <h2>Clock Offset</h2>
+                <div class="icon-group">
+                    <span id="ntp-active"></span>
+                    <span id="sync-status"></span>
+                    <span id="jitter-status"></span>
+                </div>
                 <p id="delta-status">-- ms (-- frames)</p>
-                <p id="jitter-status"></p>
             </div>
 
             <!-- Network Interfaces -->
