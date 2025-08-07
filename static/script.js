@@ -85,7 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
         statusElements.ltcStatus.innerHTML = `<img src="${ltcIconInfo.src}" class="status-icon" alt="" title="${ltcIconInfo.tooltip}"><span>${ltcStatus}</span>`;
         statusElements.ltcStatus.className = ltcStatus.toLowerCase();
         statusElements.ltcTimecode.textContent = data.ltc_timecode;
-        statusElements.frameRate.textContent = data.frame_rate;
+
+        const frameRate = data.frame_rate || 'unknown';
+        const frameRateIconInfo = iconMap.frameRate[frameRate] || iconMap.frameRate.default;
+        statusElements.frameRate.innerHTML = `<img src="${frameRateIconInfo.src}" class="status-icon" alt="" title="${frameRateIconInfo.tooltip}"><span>${frameRate} fps</span>`;
+
         statusElements.lockRatio.textContent = data.lock_ratio.toFixed(2);
         statusElements.systemClock.textContent = data.system_clock;
         statusElements.systemDate.textContent = data.system_date;

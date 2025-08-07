@@ -99,7 +99,7 @@ button:hover {
     color: #555;
 }
 
-#ltc-status, #ntp-active, #sync-status, #jitter-status, #delta-status {
+#ltc-status, #ntp-active, #sync-status, #jitter-status, #delta-status, #frame-rate {
     display: inline-flex;
     align-items: center;
     gap: 0.5em;
