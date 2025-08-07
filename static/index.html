@@ -54,8 +54,12 @@
             </div>
 
             <!-- Controls -->
-            <div class="card full-width">
-                <h2>Controls</h2>
+            <div class="card full-width collapsible-card">
+                <div class="toggle-header" id="controls-toggle">
+                    <img src="assets/timeturner_controls.png" class="toggle-icon" alt="Controls Icon">
+                    <h2>Controls</h2>
+                </div>
+                <div class="collapsible-content" id="controls-content">
                 <div class="control-group">
                     <label for="hw-offset">Hardware Offset (ms):</label>
                     <input type="number" id="hw-offset" name="hw-offset">
@@ -107,12 +111,18 @@
                     <button id="set-date">Set Date</button>
                     <span id="date-message"></span>
                 </div>
+                </div>
             </div>
 
             <!-- Logs -->
-            <div class="card full-width">
-                <h2>Logs</h2>
-                <pre id="logs" class="log-box"></pre>
+            <div class="card full-width collapsible-card">
+                <div class="toggle-header" id="logs-toggle">
+                    <img src="assets/timeturner_logs.png" class="toggle-icon" alt="Logs Icon">
+                    <h2>Logs</h2>
+                </div>
+                <div class="collapsible-content" id="logs-content">
+                    <pre id="logs" class="log-box"></pre>
+                </div>
             </div>
         </div>
     </div>

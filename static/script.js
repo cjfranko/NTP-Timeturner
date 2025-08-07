@@ -44,6 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const setDateButton = document.getElementById('set-date');
     const dateMessage = document.getElementById('date-message');
 
+    // --- Collapsible Sections ---
+    const controlsToggle = document.getElementById('controls-toggle');
+    const controlsContent = document.getElementById('controls-content');
+    const logsToggle = document.getElementById('logs-toggle');
+    const logsContent = document.getElementById('logs-content');
+
     // --- Mock Controls Setup ---
     const mockControls = document.getElementById('mock-controls');
     const mockDataSelector = document.getElementById('mock-data-selector');
@@ -393,6 +399,17 @@ document.addEventListener('DOMContentLoaded', () => {
         nudgeClock(ms);
     });
     setDateButton.addEventListener('click', setDate);
+
+    // --- Collapsible Section Listeners ---
+    controlsToggle.addEventListener('click', () => {
+        const isActive = controlsContent.classList.toggle('active');
+        controlsToggle.classList.toggle('active', isActive);
+    });
+
+    logsToggle.addEventListener('click', () => {
+        const isActive = logsContent.classList.toggle('active');
+        logsToggle.classList.toggle('active', isActive);
+    });
 
     // Initial data load
     setupMockControls();

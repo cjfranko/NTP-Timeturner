@@ -110,6 +110,43 @@ button:hover {
     height: 60px;
 }
 
+.collapsible-card {
+    padding: 0;
+}
+
+.collapsible-card .toggle-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.collapsible-card .toggle-header.active {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: 1px solid #eee;
+}
+
+.collapsible-card .toggle-header:hover {
+    background-color: #e9e9f3;
+}
+
+.toggle-icon {
+    width: 40px;
+    height: 40px;
+}
+
+.collapsible-content {
+    display: none;
+    padding: 20px;
+}
+
+.collapsible-content.active {
+    display: block;
+}
+
 /* Status-specific colors */
 #sync-status.in-sync, #jitter-status.good { font-weight: bold; color: #28a745; }
 #sync-status.clock-ahead, #sync-status.clock-behind, #jitter-status.average { font-weight: bold; color: #ffc107; }
