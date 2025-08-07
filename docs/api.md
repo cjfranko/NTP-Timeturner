@@ -8,13 +8,13 @@ This document describes the HTTP API for the NTP Timeturner application.
 
 - **`GET /api/status`**
 
-  Retrieves the real-time status of the LTC reader and system clock synchronization.
+  Retrieves the real-time status of the LTC reader and system clock synchronization. The `ltc_timecode` field uses `:` as a separator for non-drop-frame timecode, and `;` for drop-frame timecode between seconds and frames (e.g., `10:20:30;00`).
 
   **Example Response:**
   ```json
   {
     "ltc_status": "LOCK",
-    "ltc_timecode": "10:20:30:00",
+    "ltc_timecode": "10:20:30;00",
     "frame_rate": "25.00fps",
     "system_clock": "10:20:30.005",
     "system_date": "2025-07-30",

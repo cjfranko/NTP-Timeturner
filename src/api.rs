@@ -47,7 +47,11 @@ async fn get_status(data: web::Data<AppState>) -> impl Responder {
 
     let ltc_status = state.latest.as_ref().map_or("(waiting)".to_string(), |f| f.status.clone());
     let ltc_timecode = state.latest.as_ref().map_or("…".to_string(), |f| {
-        format!("{:02}:{:02}:{:02}:{:02}", f.hours, f.minutes, f.seconds, f.frames)
+        let sep = if f.is_drop_frame { ';' } else { ':' };
+        format!(
+            "{:02}:{:02}:{:02}{}{:02}",
+            f.hours, f.minutes, f.seconds, sep, f.frames
+        )
     });
     let frame_rate = state.latest.as_ref().map_or("…".to_string(), |f| {
         format!("{:.2}fps", f.frame_rate.to_f64().unwrap_or(0.0))
@@ -242,6 +246,7 @@ mod tests {
                 minutes: 2,
                 seconds: 3,
                 frames: 4,
+                is_drop_frame: false,
                 frame_rate: Ratio::new(25, 1),
                 timestamp: Utc::now(),
             }),
@@ -288,6 +293,32 @@ mod tests {
         assert_eq!(resp.ltc_timecode, "01:02:03:04");
         assert_eq!(resp.frame_rate, "25.00fps");
         assert_eq!(resp.hardware_offset_ms, 10);
+    }
+
+    #[actix_web::test]
+    async fn test_get_status_drop_frame() {
+        let app_state = get_test_app_state();
+        // Set state to drop frame
+        app_state
+            .ltc_state
+            .lock()
+            .unwrap()
+            .latest
+            .as_mut()
+            .unwrap()
+            .is_drop_frame = true;
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .service(get_status),
+        )
+        .await;
+
+        let req = test::TestRequest::get().uri("/api/status").to_request();
+        let resp: ApiStatus = test::call_and_read_body_json(&app, req).await;
+
+        assert_eq!(resp.ltc_timecode, "01:02:03;04");
     }
 
     #[actix_web::test]

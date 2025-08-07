@@ -24,6 +24,7 @@ pub struct LtcFrame {
     pub minutes: u32,
     pub seconds: u32,
     pub frames: u32,
+    pub is_drop_frame: bool,
     pub frame_rate: Ratio<i64>,
     pub timestamp: DateTime<Utc>, // arrival stamp
 }
@@ -35,8 +36,9 @@ impl LtcFrame {
             hours: caps[2].parse().ok()?,
             minutes: caps[3].parse().ok()?,
             seconds: caps[4].parse().ok()?,
-            frames: caps[5].parse().ok()?,
-            frame_rate: get_frame_rate_ratio(&caps[6])?,
+            is_drop_frame: &caps[5] == ";",
+            frames: caps[6].parse().ok()?,
+            frame_rate: get_frame_rate_ratio(&caps[7])?,
             timestamp,
         })
     }
@@ -205,6 +207,7 @@ mod tests {
             minutes: m,
             seconds: s,
             frames: 0,
+            is_drop_frame: false,
             frame_rate: Ratio::new(25, 1),
             timestamp: Utc::now(),
         }

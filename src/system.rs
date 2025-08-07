@@ -45,21 +45,13 @@ pub fn calculate_target_time(frame: &LtcFrame, config: &Config) -> DateTime<Loca
     let timecode_secs =
         frame.hours as i64 * 3600 + frame.minutes as i64 * 60 + frame.seconds as i64;
 
-    // Total duration in seconds as a rational number, including frames
+    // Timecode is always treated as wall-clock time. NDF scaling is not applied
+    // as the LTC source appears to be pre-compensated.
     let total_duration_secs =
         Ratio::new(timecode_secs, 1) + Ratio::new(frame.frames as i64, 1) / frame.frame_rate;
 
-    // For fractional frame rates (23.98, 29.97), timecode runs slower than wall clock.
-    // We need to scale the timecode duration up to get wall clock time.
-    // The scaling factor is 1001/1000.
-    let scaled_duration_secs = if *frame.frame_rate.denom() == 1001 {
-        total_duration_secs * Ratio::new(1001, 1000)
-    } else {
-        total_duration_secs
-    };
-
     // Convert to milliseconds
-    let total_ms = (scaled_duration_secs * Ratio::new(1000, 1))
+    let total_ms = (total_duration_secs * Ratio::new(1000, 1))
         .round()
         .to_integer();
 
@@ -157,19 +149,20 @@ pub fn nudge_clock(microseconds: i64) -> Result<(), ()> {
 pub fn set_date(date: &str) -> Result<(), ()> {
     #[cfg(target_os = "linux")]
     {
+        let datetime_str = format!("{} 10:00:00", date);
         let success = Command::new("sudo")
             .arg("date")
             .arg("--set")
-            .arg(date)
+            .arg(&datetime_str)
             .status()
             .map(|s| s.success())
             .unwrap_or(false);
 
         if success {
-            log::info!("Set system date to {}", date);
+            log::info!("Set system date and time to {}", datetime_str);
             Ok(())
         } else {
-            log::error!("Failed to set system date");
+            log::error!("Failed to set system date and time");
             Err(())
         }
     }
@@ -196,6 +189,7 @@ mod tests {
             minutes: m,
             seconds: s,
             frames: f,
+            is_drop_frame: false,
             frame_rate: Ratio::new(25, 1),
             timestamp: Utc::now(),
         }

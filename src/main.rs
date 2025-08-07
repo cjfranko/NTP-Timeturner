@@ -15,6 +15,7 @@ use crate::sync_logic::LtcState;
 use crate::ui::start_ui;
 use clap::Parser;
 use daemonize::Daemonize;
+use serialport;
 
 use std::{
     fs,
@@ -35,6 +36,8 @@ struct Args {
 enum Command {
     /// Run as a background daemon providing a web UI.
     Daemon,
+    /// Stop the running daemon process.
+    Kill,
 }
 
 /// Default config content, embedded in the binary.
@@ -70,30 +73,85 @@ fn ensure_config() {
     }
 }
 
+fn find_serial_port() -> Option<String> {
+    if let Ok(ports) = serialport::available_ports() {
+        for p in ports {
+            if p.port_name.starts_with("/dev/ttyACM")
+                || p.port_name.starts_with("/dev/ttyAMA")
+                || p.port_name.starts_with("/dev/ttyUSB")
+            {
+                return Some(p.port_name);
+            }
+        }
+    }
+    None
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     // This must be called before any logging statements.
     let log_buffer = logger::setup_logger();
     let args = Args::parse();
 
-    if let Some(Command::Daemon) = &args.command {
-        log::info!("🚀 Starting daemon...");
+    if let Some(command) = &args.command {
+        match command {
+            Command::Daemon => {
+                log::info!("🚀 Starting daemon...");
 
-        // Create files for stdout and stderr in the current directory
-        let stdout = fs::File::create("daemon.out").expect("Could not create daemon.out");
-        let stderr = fs::File::create("daemon.err").expect("Could not create daemon.err");
+                // Create files for stdout and stderr in the current directory
+                let stdout =
+                    fs::File::create("daemon.out").expect("Could not create daemon.out");
+                let stderr =
+                    fs::File::create("daemon.err").expect("Could not create daemon.err");
 
-        let daemonize = Daemonize::new()
-            .pid_file("ntp_timeturner.pid") // Create a PID file
-            .working_directory(".") // Keep the same working directory
-            .stdout(stdout)
-            .stderr(stderr);
+                let daemonize = Daemonize::new()
+                    .pid_file("ntp_timeturner.pid") // Create a PID file
+                    .working_directory(".") // Keep the same working directory
+                    .stdout(stdout)
+                    .stderr(stderr);
 
-        match daemonize.start() {
-            Ok(_) => { /* Process is now daemonized */ }
-            Err(e) => {
-                log::error!("Error daemonizing: {}", e);
-                return; // Exit if daemonization fails
+                match daemonize.start() {
+                    Ok(_) => { /* Process is now daemonized */ }
+                    Err(e) => {
+                        log::error!("Error daemonizing: {}", e);
+                        return; // Exit if daemonization fails
+                    }
+                }
+            }
+            Command::Kill => {
+                log::info!("🛑 Stopping daemon...");
+                let pid_file = "ntp_timeturner.pid";
+                match fs::read_to_string(pid_file) {
+                    Ok(pid_str) => {
+                        let pid_str = pid_str.trim();
+                        log::info!("Found daemon with PID: {}", pid_str);
+                        match std::process::Command::new("kill").arg("-9").arg(format!("-{}", pid_str)).status() {
+                            Ok(status) => {
+                                if status.success() {
+                                    log::info!("✅ Daemon stopped successfully.");
+                                    if fs::remove_file(pid_file).is_err() {
+                                        log::warn!("Could not remove PID file '{}'. It may need to be removed manually.", pid_file);
+                                    }
+                                } else {
+                                    log::error!("'kill' command failed with status: {}. The daemon may not be running, or you may not have permission to stop it.", status);
+                                    log::warn!("Attempting to remove stale PID file '{}'...", pid_file);
+                                    if fs::remove_file(pid_file).is_ok() {
+                                        log::info!("Removed stale PID file.");
+                                    } else {
+                                        log::warn!("Could not remove PID file.");
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("Failed to execute 'kill' command. Is 'kill' in your PATH? Error: {}", e);
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        log::error!("Could not read PID file '{}'. Is the daemon running in this directory?", pid_file);
+                    }
+                }
+                return;
             }
         }
     }
@@ -110,13 +168,23 @@ async fn main() {
     // 3️⃣ Shared state for UI and serial reader
     let ltc_state = Arc::new(Mutex::new(LtcState::new()));
 
-    // 4️⃣ Spawn the serial reader thread
+    // 4️⃣ Find serial port and spawn the serial reader thread
+    let serial_port_path = match find_serial_port() {
+        Some(port) => port,
+        None => {
+            log::error!("❌ No serial port found. Please connect the Teensy device.");
+            return;
+        }
+    };
+    log::info!("Found serial port: {}", serial_port_path);
+
     {
         let tx_clone = tx.clone();
         let state_clone = ltc_state.clone();
+        let port_clone = serial_port_path.clone();
         thread::spawn(move || {
             start_serial_thread(
-                "/dev/ttyACM0",
+                &port_clone,
                 115200,
                 tx_clone,
                 state_clone,
@@ -132,7 +200,7 @@ async fn main() {
         log::info!("🖥️ UI thread launched");
         let ui_state = ltc_state.clone();
         let config_clone = config.clone();
-        let port = "/dev/ttyACM0".to_string();
+        let port = serial_port_path;
         thread::spawn(move || {
             start_ui(ui_state, port, config_clone);
         });

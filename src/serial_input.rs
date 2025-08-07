@@ -32,7 +32,7 @@ pub fn start_serial_thread(
 
     let reader = std::io::BufReader::new(port);
     let re = Regex::new(
-        r"\[(LOCK|FREE)\]\s+(\d{2}):(\d{2}):(\d{2})[:;](\d{2})\s+\|\s+([\d.]+)fps",
+        r"\[(LOCK|FREE)\]\s+(\d{2}):(\d{2}):(\d{2})([:;])(\d{2})\s+\|\s+([\d.]+)fps",
     )
     .unwrap();
 
@@ -65,7 +65,7 @@ mod tests {
 
     fn get_ltc_regex() -> Regex {
         Regex::new(
-            r"\[(LOCK|FREE)\]\s+(\d{2}):(\d{2}):(\d{2})[:;](\d{2})\s+\|\s+([\d.]+)fps",
+            r"\[(LOCK|FREE)\]\s+(\d{2}):(\d{2}):(\d{2})([:;])(\d{2})\s+\|\s+([\d.]+)fps",
         ).unwrap()
     }
 
