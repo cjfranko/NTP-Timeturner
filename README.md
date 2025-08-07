@@ -29,8 +29,15 @@ Created by Chris Frankland-Wright and John Rogers
 
 ---
 
-## 🚀 Installation (to update)
+## 🛠️ Known Issues
 
+- Supported Frame Rates: 24/25fps
+- Non Supported Frame Rates: 23.98/30/59.94/60
+- Fractional framerates have drift or wrong wall clock sync issues
+
+---
+
+## 🚀 Installation (to update)
 
 For Rust install you can do 
 ```bash
