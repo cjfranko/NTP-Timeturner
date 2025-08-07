@@ -90,6 +90,11 @@ document.addEventListener('DOMContentLoaded', () => {
         statusElements.systemClock.textContent = data.system_clock;
         statusElements.systemDate.textContent = data.system_date;
 
+        // Autofill the date input, but don't overwrite user edits.
+        if (!lastApiData || dateInput.value === lastApiData.system_date) {
+            dateInput.value = data.system_date;
+        }
+
         const ntpIconInfo = iconMap.ntpActive[!!data.ntp_active];
         if (data.ntp_active) {
             statusElements.ntpActive.innerHTML = `<img src="${ntpIconInfo.src}" class="status-icon" alt="" title="${ntpIconInfo.tooltip}"><span>Active</span>`;
