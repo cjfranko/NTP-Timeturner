@@ -76,8 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateStatus(data) {
         const ltcStatus = data.ltc_status || 'UNKNOWN';
-        const ltcIconSrc = iconMap.ltcStatus[ltcStatus] || iconMap.ltcStatus.default;
-        statusElements.ltcStatus.innerHTML = `<img src="${ltcIconSrc}" class="status-icon" alt=""><span>${ltcStatus}</span>`;
+        const ltcIconInfo = iconMap.ltcStatus[ltcStatus] || iconMap.ltcStatus.default;
+        statusElements.ltcStatus.innerHTML = `<img src="${ltcIconInfo.src}" class="status-icon" alt="" title="${ltcIconInfo.tooltip}"><span>${ltcStatus}</span>`;
         statusElements.ltcStatus.className = ltcStatus.toLowerCase();
         statusElements.ltcTimecode.textContent = data.ltc_timecode;
         statusElements.frameRate.textContent = data.frame_rate;
@@ -85,26 +85,26 @@ document.addEventListener('DOMContentLoaded', () => {
         statusElements.systemClock.textContent = data.system_clock;
         statusElements.systemDate.textContent = data.system_date;
 
-        const ntpIconSrc = iconMap.ntpActive[data.ntp_active];
+        const ntpIconInfo = iconMap.ntpActive[!!data.ntp_active];
         if (data.ntp_active) {
-            statusElements.ntpActive.innerHTML = `<img src="${ntpIconSrc}" class="status-icon" alt=""><span>Active</span>`;
+            statusElements.ntpActive.innerHTML = `<img src="${ntpIconInfo.src}" class="status-icon" alt="" title="${ntpIconInfo.tooltip}"><span>Active</span>`;
             statusElements.ntpActive.className = 'active';
         } else {
-            statusElements.ntpActive.innerHTML = `<img src="${ntpIconSrc}" class="status-icon" alt=""><span>Inactive</span>`;
+            statusElements.ntpActive.innerHTML = `<img src="${ntpIconInfo.src}" class="status-icon" alt="" title="${ntpIconInfo.tooltip}"><span>Inactive</span>`;
             statusElements.ntpActive.className = 'inactive';
         }
 
         const syncStatus = data.sync_status || 'UNKNOWN';
-        const syncIconSrc = iconMap.syncStatus[syncStatus] || iconMap.syncStatus.default;
-        statusElements.syncStatus.innerHTML = `<img src="${syncIconSrc}" class="status-icon" alt=""><span>${syncStatus}</span>`;
+        const syncIconInfo = iconMap.syncStatus[syncStatus] || iconMap.syncStatus.default;
+        statusElements.syncStatus.innerHTML = `<img src="${syncIconInfo.src}" class="status-icon" alt="" title="${syncIconInfo.tooltip}"><span>${syncStatus}</span>`;
         statusElements.syncStatus.className = syncStatus.replace(/\s+/g, '-').toLowerCase();
 
         statusElements.deltaMs.textContent = data.timecode_delta_ms;
         statusElements.deltaFrames.textContent = data.timecode_delta_frames;
 
         const jitterStatus = data.jitter_status || 'UNKNOWN';
-        const jitterIconSrc = iconMap.jitterStatus[jitterStatus] || iconMap.jitterStatus.default;
-        statusElements.jitterStatus.innerHTML = `<img src="${jitterIconSrc}" class="status-icon" alt=""><span>${jitterStatus}</span>`;
+        const jitterIconInfo = iconMap.jitterStatus[jitterStatus] || iconMap.jitterStatus.default;
+        statusElements.jitterStatus.innerHTML = `<img src="${jitterIconInfo.src}" class="status-icon" alt="" title="${jitterIconInfo.tooltip}"><span>${jitterStatus}</span>`;
         statusElements.jitterStatus.className = jitterStatus.toLowerCase();
 
         statusElements.interfaces.innerHTML = '';

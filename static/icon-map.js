@@ -1,25 +1,25 @@
 // In this file, you can define the paths to your local icon image files.
 const iconMap = {
     ltcStatus: {
-        'LOCK': 'assets/timeturner_ltc_green.png',
-        'FREE': 'assets/timeturner_ltc_orange.png',
-        'default': 'assets/timeturner_ltc_red.png'
+        'LOCK': { src: 'assets/timeturner_ltc_green.png', tooltip: 'LTC signal is locked and stable.' },
+        'FREE': { src: 'assets/timeturner_ltc_orange.png', tooltip: 'LTC signal is in freewheel mode.' },
+        'default': { src: 'assets/timeturner_ltc_red.png', tooltip: 'LTC signal is not detected.' }
     },
     ntpActive: {
-        true: 'assets/timeturner_ntp_green.png',
-        false: 'assets/timeturner_ntp_red.png'
+        true: { src: 'assets/timeturner_ntp_green.png', tooltip: 'NTP service is active.' },
+        false: { src: 'assets/timeturner_ntp_red.png', tooltip: 'NTP service is inactive.' }
     },
     syncStatus: {
-        'IN SYNC': 'assets/timeturner_sync_green.png',
-        'CLOCK AHEAD': 'assets/timeturner_sync_orange.png',
-        'CLOCK BEHIND': 'assets/timeturner_sync_orange.png',
-        'TIMETURNING': 'assets/timeturner_timeturning.png',
-        'default': 'assets/timeturner_sync_red.png'
+        'IN SYNC': { src: 'assets/timeturner_sync_green.png', tooltip: 'System clock is in sync with LTC source.' },
+        'CLOCK AHEAD': { src: 'assets/timeturner_sync_orange.png', tooltip: 'System clock is ahead of the LTC source.' },
+        'CLOCK BEHIND': { src: 'assets/timeturner_sync_orange.png', tooltip: 'System clock is behind the LTC source.' },
+        'TIMETURNING': { src: 'assets/timeturner_timeturning.png', tooltip: 'Timeturner offset is active.' },
+        'default': { src: 'assets/timeturner_sync_red.png', tooltip: 'Sync status is unknown.' }
     },
     jitterStatus: {
-        'GOOD': 'assets/timeturner_jitter_green.png',
-        'AVERAGE': 'assets/timeturner_jitter_orange.png',
-        'BAD': 'assets/timeturner_jitter_red.png',
-        'default': 'assets/timeturner_jitter_red.png'
+        'GOOD': { src: 'assets/timeturner_jitter_green.png', tooltip: 'Clock jitter is within acceptable limits.' },
+        'AVERAGE': { src: 'assets/timeturner_jitter_orange.png', tooltip: 'Clock jitter is moderate.' },
+        'BAD': { src: 'assets/timeturner_jitter_red.png', tooltip: 'Clock jitter is high and may affect accuracy.' },
+        'default': { src: 'assets/timeturner_jitter_red.png', tooltip: 'Jitter status is unknown.' }
     }
 };
