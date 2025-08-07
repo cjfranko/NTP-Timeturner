@@ -21,5 +21,10 @@ const iconMap = {
         'AVERAGE': { src: 'assets/timeturner_jitter_orange.png', tooltip: 'Clock jitter is moderate.' },
         'BAD': { src: 'assets/timeturner_jitter_red.png', tooltip: 'Clock jitter is high and may affect accuracy.' },
         'default': { src: 'assets/timeturner_jitter_red.png', tooltip: 'Jitter status is unknown.' }
+    },
+    deltaStatus: {
+        'good': { src: 'assets/timeturner_delta_green.png', tooltip: 'Clock delta is low (<= 40ms).' },
+        'average': { src: 'assets/timeturner_delta_orange.png', tooltip: 'Clock delta is moderate (<= 100ms).' },
+        'bad': { src: 'assets/timeturner_delta_red.png', tooltip: 'Clock delta is high (> 100ms).' }
     }
 };

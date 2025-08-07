@@ -16,8 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         systemDate: document.getElementById('system-date'),
         ntpActive: document.getElementById('ntp-active'),
         syncStatus: document.getElementById('sync-status'),
-        deltaMs: document.getElementById('delta-ms'),
-        deltaFrames: document.getElementById('delta-frames'),
+        deltaStatus: document.getElementById('delta-status'),
         jitterStatus: document.getElementById('jitter-status'),
         interfaces: document.getElementById('interfaces'),
         logs: document.getElementById('logs'),
@@ -99,8 +98,19 @@ document.addEventListener('DOMContentLoaded', () => {
         statusElements.syncStatus.innerHTML = `<img src="${syncIconInfo.src}" class="status-icon" alt="" title="${syncIconInfo.tooltip}"><span>${syncStatus}</span>`;
         statusElements.syncStatus.className = syncStatus.replace(/\s+/g, '-').toLowerCase();
 
-        statusElements.deltaMs.textContent = data.timecode_delta_ms;
-        statusElements.deltaFrames.textContent = data.timecode_delta_frames;
+        // Delta Status
+        const deltaMs = data.timecode_delta_ms;
+        let deltaCategory;
+        if (Math.abs(deltaMs) <= 40) { // ~1 frame at 25fps
+            deltaCategory = 'good';
+        } else if (Math.abs(deltaMs) <= 100) {
+            deltaCategory = 'average';
+        } else {
+            deltaCategory = 'bad';
+        }
+        const deltaIconInfo = iconMap.deltaStatus[deltaCategory];
+        const deltaText = `${data.timecode_delta_ms} ms (${data.timecode_delta_frames} frames)`;
+        statusElements.deltaStatus.innerHTML = `<img src="${deltaIconInfo.src}" class="status-icon" alt="" title="${deltaIconInfo.tooltip}"><span>${deltaText}</span>`;
 
         const jitterStatus = data.jitter_status || 'UNKNOWN';
         const jitterIconInfo = iconMap.jitterStatus[jitterStatus] || iconMap.jitterStatus.default;
