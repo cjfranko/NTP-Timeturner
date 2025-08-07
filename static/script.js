@@ -112,9 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Delta Status
         const deltaMs = data.timecode_delta_ms;
         let deltaCategory;
-        if (Math.abs(deltaMs) <= 40) { // ~1 frame at 25fps
+        if (deltaMs === 0) {
             deltaCategory = 'good';
-        } else if (Math.abs(deltaMs) <= 100) {
+        } else if (Math.abs(deltaMs) < 10) {
             deltaCategory = 'average';
         } else {
             deltaCategory = 'bad';
