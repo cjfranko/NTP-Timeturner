@@ -100,10 +100,16 @@ button:hover {
     color: #555;
 }
 
-#ltc-status, #ntp-active, #sync-status, #jitter-status, #delta-status, #frame-rate, #lock-ratio {
+#delta-status {
     display: inline-flex;
     align-items: center;
     gap: 0.5em;
+}
+
+#ltc-status, #ntp-active, #sync-status, #jitter-status, #frame-rate, #lock-ratio {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .status-icon {

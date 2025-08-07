@@ -82,13 +82,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateStatus(data) {
         const ltcStatus = data.ltc_status || 'UNKNOWN';
         const ltcIconInfo = iconMap.ltcStatus[ltcStatus] || iconMap.ltcStatus.default;
-        statusElements.ltcStatus.innerHTML = `<img src="${ltcIconInfo.src}" class="status-icon" alt="" title="${ltcIconInfo.tooltip}"><span>${ltcStatus}</span>`;
+        statusElements.ltcStatus.innerHTML = `<img src="${ltcIconInfo.src}" class="status-icon" alt="" title="${ltcIconInfo.tooltip}">`;
         statusElements.ltcStatus.className = ltcStatus.toLowerCase();
         statusElements.ltcTimecode.textContent = data.ltc_timecode;
 
         const frameRate = data.frame_rate || 'unknown';
         const frameRateIconInfo = iconMap.frameRate[frameRate] || iconMap.frameRate.default;
-        statusElements.frameRate.innerHTML = `<img src="${frameRateIconInfo.src}" class="status-icon" alt="" title="${frameRateIconInfo.tooltip}"><span>${frameRate} fps</span>`;
+        statusElements.frameRate.innerHTML = `<img src="${frameRateIconInfo.src}" class="status-icon" alt="" title="${frameRateIconInfo.tooltip}">`;
 
         const lockRatio = data.lock_ratio;
         let lockRatioCategory;
@@ -100,8 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lockRatioCategory = 'bad';
         }
         const lockRatioIconInfo = iconMap.lockRatio[lockRatioCategory];
-        const lockRatioText = `Lock Ratio: ${lockRatio.toFixed(2)}%`;
-        statusElements.lockRatio.innerHTML = `<img src="${lockRatioIconInfo.src}" class="status-icon" alt="" title="${lockRatioIconInfo.tooltip}"><span>${lockRatioText}</span>`;
+        statusElements.lockRatio.innerHTML = `<img src="${lockRatioIconInfo.src}" class="status-icon" alt="" title="${lockRatioIconInfo.tooltip}">`;
         statusElements.systemClock.textContent = data.system_clock;
         statusElements.systemDate.textContent = data.system_date;
 
@@ -112,16 +111,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const ntpIconInfo = iconMap.ntpActive[!!data.ntp_active];
         if (data.ntp_active) {
-            statusElements.ntpActive.innerHTML = `<img src="${ntpIconInfo.src}" class="status-icon" alt="" title="${ntpIconInfo.tooltip}"><span>Active</span>`;
+            statusElements.ntpActive.innerHTML = `<img src="${ntpIconInfo.src}" class="status-icon" alt="" title="${ntpIconInfo.tooltip}">`;
             statusElements.ntpActive.className = 'active';
         } else {
-            statusElements.ntpActive.innerHTML = `<img src="${ntpIconInfo.src}" class="status-icon" alt="" title="${ntpIconInfo.tooltip}"><span>Inactive</span>`;
+            statusElements.ntpActive.innerHTML = `<img src="${ntpIconInfo.src}" class="status-icon" alt="" title="${ntpIconInfo.tooltip}">`;
             statusElements.ntpActive.className = 'inactive';
         }
 
         const syncStatus = data.sync_status || 'UNKNOWN';
         const syncIconInfo = iconMap.syncStatus[syncStatus] || iconMap.syncStatus.default;
-        statusElements.syncStatus.innerHTML = `<img src="${syncIconInfo.src}" class="status-icon" alt="" title="${syncIconInfo.tooltip}"><span>${syncStatus}</span>`;
+        statusElements.syncStatus.innerHTML = `<img src="${syncIconInfo.src}" class="status-icon" alt="" title="${syncIconInfo.tooltip}">`;
         statusElements.syncStatus.className = syncStatus.replace(/\s+/g, '-').toLowerCase();
 
         // Delta Status
@@ -140,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const jitterStatus = data.jitter_status || 'UNKNOWN';
         const jitterIconInfo = iconMap.jitterStatus[jitterStatus] || iconMap.jitterStatus.default;
-        statusElements.jitterStatus.innerHTML = `<img src="${jitterIconInfo.src}" class="status-icon" alt="" title="${jitterIconInfo.tooltip}"><span>${jitterStatus}</span>`;
+        statusElements.jitterStatus.innerHTML = `<img src="${jitterIconInfo.src}" class="status-icon" alt="" title="${jitterIconInfo.tooltip}">`;
         statusElements.jitterStatus.className = jitterStatus.toLowerCase();
 
         statusElements.interfaces.innerHTML = '';
