@@ -41,24 +41,73 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateMessage = document.getElementById('date-message');
 
     function updateStatus(data) {
-        statusElements.ltcStatus.textContent = data.ltc_status;
+        let ltcStatusIcon = '';
+        switch (data.ltc_status) {
+            case 'LOCK':
+                ltcStatusIcon = '<i class="fa-solid fa-lock"></i>';
+                break;
+            case 'FREE':
+                ltcStatusIcon = '<i class="fa-solid fa-lock-open"></i>';
+                break;
+            default:
+                ltcStatusIcon = '<i class="fa-solid fa-question-circle"></i>';
+        }
+        statusElements.ltcStatus.innerHTML = `${ltcStatusIcon} ${data.ltc_status}`;
         statusElements.ltcTimecode.textContent = data.ltc_timecode;
         statusElements.frameRate.textContent = data.frame_rate;
         statusElements.lockRatio.textContent = data.lock_ratio.toFixed(2);
         statusElements.systemClock.textContent = data.system_clock;
         statusElements.systemDate.textContent = data.system_date;
 
-        statusElements.ntpActive.textContent = data.ntp_active ? 'Active' : 'Inactive';
-        statusElements.ntpActive.className = data.ntp_active ? 'active' : 'inactive';
+        if (data.ntp_active) {
+            statusElements.ntpActive.innerHTML = '<i class="fa-solid fa-check-circle"></i> Active';
+            statusElements.ntpActive.className = 'active';
+        } else {
+            statusElements.ntpActive.innerHTML = '<i class="fa-solid fa-times-circle"></i> Inactive';
+            statusElements.ntpActive.className = 'inactive';
+        }
 
-        statusElements.syncStatus.textContent = data.sync_status;
-        statusElements.syncStatus.className = data.sync_status.replace(/\s+/g, '-').toLowerCase();
+        const syncStatusClass = data.sync_status.replace(/\s+/g, '-').toLowerCase();
+        let syncIcon = '';
+        switch (data.sync_status) {
+            case 'IN SYNC':
+                syncIcon = '<i class="fa-solid fa-arrows-rotate"></i>';
+                break;
+            case 'CLOCK AHEAD':
+                syncIcon = '<i class="fa-solid fa-forward"></i>';
+                break;
+            case 'CLOCK BEHIND':
+                syncIcon = '<i class="fa-solid fa-backward"></i>';
+                break;
+            case 'TIMETURNING':
+                syncIcon = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
+                break;
+            default:
+                syncIcon = '<i class="fa-solid fa-question-circle"></i>';
+        }
+        statusElements.syncStatus.innerHTML = `${syncIcon} ${data.sync_status}`;
+        statusElements.syncStatus.className = syncStatusClass;
 
         statusElements.deltaMs.textContent = data.timecode_delta_ms;
         statusElements.deltaFrames.textContent = data.timecode_delta_frames;
 
-        statusElements.jitterStatus.textContent = data.jitter_status;
-        statusElements.jitterStatus.className = data.jitter_status.toLowerCase();
+        const jitterStatusClass = data.jitter_status.toLowerCase();
+        let jitterIcon = '';
+        switch (data.jitter_status) {
+            case 'GOOD':
+                jitterIcon = '<i class="fa-solid fa-thumbs-up"></i>';
+                break;
+            case 'AVERAGE':
+                jitterIcon = '<i class="fa-solid fa-face-meh"></i>';
+                break;
+            case 'BAD':
+                jitterIcon = '<i class="fa-solid fa-thumbs-down"></i>';
+                break;
+            default:
+                jitterIcon = '<i class="fa-solid fa-question-circle"></i>';
+        }
+        statusElements.jitterStatus.innerHTML = `${jitterIcon} ${data.jitter_status}`;
+        statusElements.jitterStatus.className = jitterStatusClass;
 
         statusElements.interfaces.innerHTML = '';
         if (data.interfaces.length > 0) {
