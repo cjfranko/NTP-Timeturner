@@ -248,9 +248,7 @@ async fn main() {
                     let state = sync_state.lock().unwrap();
                     let config = sync_config.lock().unwrap();
 
-                    if config.is_auto_sync_paused() {
-                        log::info!("Auto-sync is temporarily paused.");
-                    } else if config.auto_sync_enabled && state.latest.is_some() {
+                    if config.auto_sync_enabled && state.latest.is_some() {
                         let delta = state.get_ewma_clock_delta();
                         let frame = state.latest.as_ref().unwrap();
 
