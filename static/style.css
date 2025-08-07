@@ -138,6 +138,17 @@ button:hover {
     height: 40px;
 }
 
+.header-icon {
+    width: 40px;
+    height: 40px;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
 .collapsible-content {
     display: none;
     padding: 20px;
