@@ -90,7 +90,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const frameRateIconInfo = iconMap.frameRate[frameRate] || iconMap.frameRate.default;
         statusElements.frameRate.innerHTML = `<img src="${frameRateIconInfo.src}" class="status-icon" alt="" title="${frameRateIconInfo.tooltip}"><span>${frameRate} fps</span>`;
 
-        statusElements.lockRatio.textContent = data.lock_ratio.toFixed(2);
+        const lockRatio = data.lock_ratio;
+        let lockRatioCategory;
+        if (lockRatio === 100) {
+            lockRatioCategory = 'good';
+        } else if (lockRatio >= 90) {
+            lockRatioCategory = 'average';
+        } else {
+            lockRatioCategory = 'bad';
+        }
+        const lockRatioIconInfo = iconMap.lockRatio[lockRatioCategory];
+        const lockRatioText = `Lock Ratio: ${lockRatio.toFixed(2)}%`;
+        statusElements.lockRatio.innerHTML = `<img src="${lockRatioIconInfo.src}" class="status-icon" alt="" title="${lockRatioIconInfo.tooltip}"><span>${lockRatioText}</span>`;
         statusElements.systemClock.textContent = data.system_clock;
         statusElements.systemDate.textContent = data.system_date;
 
