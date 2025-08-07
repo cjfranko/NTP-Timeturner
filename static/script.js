@@ -291,18 +291,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchLogs() {
         if (useMockData) {
-            const logs = mockApiDataSets[currentMockSetKey].logs;
-            statusElements.logs.textContent = logs.join('\n');
-            statusElements.logs.scrollTop = statusElements.logs.scrollHeight;
+            // Use a copy to avoid mutating the original mock data array
+            const logs = mockApiDataSets[currentMockSetKey].logs.slice();
+            // Show latest 20 logs, with the newest at the top.
+            logs.reverse();
+            statusElements.logs.textContent = logs.slice(0, 20).join('\n');
             return;
         }
         try {
             const response = await fetch('/api/logs');
             if (!response.ok) throw new Error('Failed to fetch logs');
             const logs = await response.json();
-            statusElements.logs.textContent = logs.join('\n');
-            // Auto-scroll to the bottom
-            statusElements.logs.scrollTop = statusElements.logs.scrollHeight;
+            // Show latest 20 logs, with the newest at the top.
+            logs.reverse();
+            statusElements.logs.textContent = logs.slice(0, 20).join('\n');
         } catch (error) {
             console.error('Error fetching logs:', error);
             statusElements.logs.textContent = 'Error fetching logs.';
