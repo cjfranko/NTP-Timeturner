@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Mock Data Configuration ---
     // Set to true to use mock data, false for live API.
-    const useMockData = false; 
+    const useMockData = true; 
     let currentMockSetKey = 'allGood'; // Default mock data set
 
     let lastApiData = null;
