@@ -31,7 +31,7 @@ body {
 
 .grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 20px;
 }
 
@@ -56,6 +56,13 @@ body {
 
 .card p, .card ul {
     margin: 10px 0;
+}
+
+.system-date-display {
+    text-align: center;
+    font-size: 1.5em;
+    font-family: 'Quartz', monospace;
+    letter-spacing: 2px;
 }
 
 .card ul {
