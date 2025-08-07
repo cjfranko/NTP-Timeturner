@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Mock Data Configuration ---
+    // Set to true to use mock data, false for live API.
+    const useMockData = true; 
+    let currentMockSetKey = 'allGood'; // Default mock data set
 
     let lastApiData = null;
     let lastApiFetchTime = null;
@@ -40,6 +44,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateInput = document.getElementById('date-input');
     const setDateButton = document.getElementById('set-date');
     const dateMessage = document.getElementById('date-message');
+
+    // --- Mock Controls Setup ---
+    const mockControls = document.getElementById('mock-controls');
+    const mockDataSelector = document.getElementById('mock-data-selector');
+
+    function setupMockControls() {
+        if (useMockData) {
+            mockControls.style.display = 'block';
+            
+            // Populate dropdown
+            Object.keys(mockApiDataSets).forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                mockDataSelector.appendChild(option);
+            });
+
+            mockDataSelector.value = currentMockSetKey;
+
+            // Handle selection change
+            mockDataSelector.addEventListener('change', (event) => {
+                currentMockSetKey = event.target.value;
+                // Re-fetch all data from the new mock set
+                fetchStatus();
+                fetchConfig();
+                fetchLogs();
+            });
+        }
+    }
 
     function updateStatus(data) {
         const ltcStatus = data.ltc_status || 'UNKNOWN';
@@ -148,6 +181,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchStatus() {
+        if (useMockData) {
+            const data = mockApiDataSets[currentMockSetKey].status;
+            updateStatus(data);
+            lastApiData = data;
+            lastApiFetchTime = new Date();
+            return;
+        }
         try {
             const response = await fetch('/api/status');
             if (!response.ok) throw new Error('Failed to fetch status');
@@ -163,6 +203,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchConfig() {
+        if (useMockData) {
+            const data = mockApiDataSets[currentMockSetKey].config;
+            hwOffsetInput.value = data.hardwareOffsetMs;
+            autoSyncCheckbox.checked = data.autoSyncEnabled;
+            offsetInputs.h.value = data.timeturnerOffset.hours;
+            offsetInputs.m.value = data.timeturnerOffset.minutes;
+            offsetInputs.s.value = data.timeturnerOffset.seconds;
+            offsetInputs.f.value = data.timeturnerOffset.frames;
+            offsetInputs.ms.value = data.timeturnerOffset.milliseconds || 0;
+            nudgeValueInput.value = data.defaultNudgeMs;
+            return;
+        }
         try {
             const response = await fetch('/api/config');
             if (!response.ok) throw new Error('Failed to fetch config');
@@ -194,6 +246,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        if (useMockData) {
+            console.log('Mock save:', config);
+            alert('Configuration saved (mock).');
+            // We can also update the mock data in memory to see changes reflected
+            mockApiDataSets[currentMockSetKey].config = config;
+            return;
+        }
+
         try {
             const response = await fetch('/api/config', {
                 method: 'POST',
@@ -209,6 +269,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchLogs() {
+        if (useMockData) {
+            const logs = mockApiDataSets[currentMockSetKey].logs;
+            statusElements.logs.textContent = logs.join('\n');
+            statusElements.logs.scrollTop = statusElements.logs.scrollHeight;
+            return;
+        }
         try {
             const response = await fetch('/api/logs');
             if (!response.ok) throw new Error('Failed to fetch logs');
@@ -224,6 +290,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function triggerManualSync() {
         syncMessage.textContent = 'Issuing sync command...';
+        if (useMockData) {
+            syncMessage.textContent = 'Success: Manual sync triggered (mock).';
+            setTimeout(() => { syncMessage.textContent = ''; }, 5000);
+            return;
+        }
         try {
             const response = await fetch('/api/sync', { method: 'POST' });
             const data = await response.json();
@@ -241,6 +312,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function nudgeClock(ms) {
         nudgeMessage.textContent = 'Nudging clock...';
+        if (useMockData) {
+            nudgeMessage.textContent = `Success: Clock nudged by ${ms}ms (mock).`;
+            setTimeout(() => { nudgeMessage.textContent = ''; }, 3000);
+            return;
+        }
         try {
             const response = await fetch('/api/nudge_clock', {
                 method: 'POST',
@@ -268,6 +344,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         dateMessage.textContent = 'Setting date...';
+        if (useMockData) {
+            mockApiDataSets[currentMockSetKey].status.system_date = date;
+            dateMessage.textContent = `Success: Date set to ${date} (mock).`;
+            fetchStatus(); // re-render
+            setTimeout(() => { dateMessage.textContent = ''; }, 5000);
+            return;
+        }
         try {
             const response = await fetch('/api/set_date', {
                 method: 'POST',
@@ -302,12 +385,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setDateButton.addEventListener('click', setDate);
 
     // Initial data load
+    setupMockControls();
     fetchStatus();
     fetchConfig();
     fetchLogs();
 
-    // Refresh data every 2 seconds
-    setInterval(fetchStatus, 2000);
-    setInterval(fetchLogs, 2000);
+    // Refresh data every 2 seconds if not using mock data
+    if (!useMockData) {
+        setInterval(fetchStatus, 2000);
+        setInterval(fetchLogs, 2000);
+    }
     setInterval(animateClocks, 50); // High-frequency clock animation
 });

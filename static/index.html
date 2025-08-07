@@ -9,6 +9,16 @@
 <body>
     <div class="container">
         <h1>NTP TimeTurner</h1>
+
+        <!-- Mock Data Controls (hidden by default) -->
+        <div id="mock-controls" class="card full-width" style="display: none;">
+            <h2>Mock Data Controls</h2>
+            <div class="control-group">
+                <label for="mock-data-selector">Select Mock Data Scenario:</label>
+                <select id="mock-data-selector"></select>
+            </div>
+        </div>
+
         <div class="grid">
             <!-- LTC Status -->
             <div class="card">
@@ -107,6 +117,7 @@
         </div>
     </div>
     <script src="icon-map.js"></script>
+    <script src="mock-data.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
