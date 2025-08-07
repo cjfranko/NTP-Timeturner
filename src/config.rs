@@ -64,6 +64,10 @@ impl Config {
             Self::default()
         })
     }
+
+    pub fn is_auto_sync_paused(&self) -> bool {
+        self.timeturner_offset.is_active()
+    }
 }
 
 impl Default for Config {
