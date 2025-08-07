@@ -3,6 +3,11 @@
     src: url('assets/FuturaStdHeavy.otf') format('opentype');
 }
 
+@font-face {
+    font-family: 'Quartz';
+    src: url('assets/quartz-ms-regular.ttf') format('truetype');
+}
+
 body {
     font-family: 'FuturaStdHeavy', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: #f4f4f9;
@@ -39,6 +44,13 @@ h1 {
 .card h2 {
     margin-top: 0;
     color: #0056b3;
+}
+
+#ltc-timecode, #system-clock {
+    font-family: 'Quartz', monospace;
+    font-size: 2em;
+    text-align: center;
+    letter-spacing: 2px;
 }
 
 .card p, .card ul {
