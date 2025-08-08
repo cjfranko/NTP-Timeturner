@@ -28,11 +28,11 @@ const iconMap = {
         'bad': { src: 'assets/timeturner_delta_red.png', tooltip: 'Clock delta is 10ms or greater.' }
     },
     frameRate: {
-        '23.98': { src: 'assets/timeturner_2398.png', tooltip: '23.98 frames per second' },
-        '24.00': { src: 'assets/timeturner_24.png', tooltip: '24.00 frames per second' },
-        '25.00': { src: 'assets/timeturner_25.png', tooltip: '25.00 frames per second' },
-        '29.97': { src: 'assets/timeturner_2997.png', tooltip: '29.97 frames per second' },
-        '30.00': { src: 'assets/timeturner_30.png', tooltip: '30.00 frames per second' },
+        '23.98fps': { src: 'assets/timeturner_2398.png', tooltip: '23.98 frames per second' },
+        '24.00fps': { src: 'assets/timeturner_24.png', tooltip: '24.00 frames per second' },
+        '25.00fps': { src: 'assets/timeturner_25.png', tooltip: '25.00 frames per second' },
+        '29.97fps': { src: 'assets/timeturner_2997.png', tooltip: '29.97 frames per second' },
+        '30.00fps': { src: 'assets/timeturner_30.png', tooltip: '30.00 frames per second' },
         'default': { src: 'assets/timeturner_default.png', tooltip: 'Unknown frame rate' }
     },
     lockRatio: {

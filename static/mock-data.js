@@ -4,7 +4,7 @@ const mockApiDataSets = {
         status: {
             ltc_status: 'LOCK',
             ltc_timecode: '10:20:30:00',
-            frame_rate: '25.00',
+            frame_rate: '25.00fps',
             lock_ratio: 99.5,
             system_clock: '10:20:30.500',
             system_date: '2025-08-07',
@@ -31,7 +31,7 @@ const mockApiDataSets = {
         status: {
             ltc_status: 'FREE',
             ltc_timecode: '11:22:33:11',
-            frame_rate: '25.00',
+            frame_rate: '25.00fps',
             lock_ratio: 40.2,
             system_clock: '11:22:33.800',
             system_date: '2025-08-07',
@@ -54,7 +54,7 @@ const mockApiDataSets = {
         status: {
             ltc_status: 'LOCK',
             ltc_timecode: '12:00:05:00',
-            frame_rate: '25.00',
+            frame_rate: '25.00fps',
             lock_ratio: 98.1,
             system_clock: '12:00:04.500',
             system_date: '2025-08-07',
@@ -77,7 +77,7 @@ const mockApiDataSets = {
         status: {
             ltc_status: 'LOCK',
             ltc_timecode: '13:30:10:00',
-            frame_rate: '25.00',
+            frame_rate: '25.00fps',
             lock_ratio: 99.9,
             system_clock: '13:30:10.800',
             system_date: '2025-08-07',
@@ -100,7 +100,7 @@ const mockApiDataSets = {
         status: {
             ltc_status: 'LOCK',
             ltc_timecode: '14:00:00:00',
-            frame_rate: '25.00',
+            frame_rate: '25.00fps',
             lock_ratio: 100,
             system_clock: '15:02:03.050',
             system_date: '2025-08-07',
@@ -123,7 +123,7 @@ const mockApiDataSets = {
         status: {
             ltc_status: 'LOCK',
             ltc_timecode: '15:15:15:15',
-            frame_rate: '25.00',
+            frame_rate: '25.00fps',
             lock_ratio: 95.0,
             system_clock: '15:15:15.515',
             system_date: '2025-08-07',
