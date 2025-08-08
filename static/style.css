@@ -176,6 +176,11 @@ button:hover {
     gap: 15px;
 }
 
+.log-box {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
 .collapsible-content {
     display: none;
     padding: 20px;
