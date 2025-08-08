@@ -65,11 +65,6 @@ body {
     letter-spacing: 2px;
 }
 
-.card ul {
-    padding-left: 20px;
-    list-style: none;
-}
-
 .full-width {
     grid-column: 1 / -1;
 }

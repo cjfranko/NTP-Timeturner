@@ -142,17 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
         statusElements.jitterStatus.innerHTML = `<img src="${jitterIconInfo.src}" class="status-icon" alt="" title="${jitterIconInfo.tooltip}">`;
         statusElements.jitterStatus.className = jitterStatus.toLowerCase();
 
-        statusElements.interfaces.innerHTML = '';
         if (data.interfaces.length > 0) {
-            data.interfaces.forEach(ip => {
-                const li = document.createElement('li');
-                li.textContent = ip;
-                statusElements.interfaces.appendChild(li);
-            });
+            statusElements.interfaces.textContent = data.interfaces.join(' | ');
         } else {
-            const li = document.createElement('li');
-            li.textContent = 'No active interfaces found.';
-            statusElements.interfaces.appendChild(li);
+            statusElements.interfaces.textContent = 'No active interfaces found.';
         }
     }
 
