@@ -5,47 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NTP TimeTurner</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
 </head>
 <body>
     <div class="container">
-        <h1>NTP TimeTurner</h1>
+        <img src="assets/header.png" alt="NTP Timeturner" class="header-logo">
+
+        <!-- Mock Data Controls (hidden by default) -->
+        <div id="mock-controls" class="card full-width" style="display: none;">
+            <h2>Mock Data Controls</h2>
+            <div class="control-group">
+                <label for="mock-data-selector">Select Mock Data Scenario:</label>
+                <select id="mock-data-selector"></select>
+            </div>
+        </div>
+
         <div class="grid">
             <!-- LTC Status -->
             <div class="card">
-                <h2>LTC Status</h2>
+                <h2>LTC Input</h2>
                 <p id="ltc-timecode">--:--:--:--</p>
-                <p id="ltc-status">--</p>
-                <p id="frame-rate">-- fps</p>
-                <p>Lock Ratio: <span id="lock-ratio">--</span>%</p>
+                <div class="icon-group">
+                    <span id="ltc-status"></span>
+                    <span id="frame-rate"></span>
+                    <span id="lock-ratio"></span>
+                </div>
             </div>
 
             <!-- System Clock & Sync -->
             <div class="card">
-                <h2>System Clock</h2>
+                <h2>NTP Clock</h2>
                 <p id="system-clock">--:--:--.---</p>
-                <p>Date: <span id="system-date">---- -- --</span></p>
-                <p>NTP Service: <span id="ntp-active">--</span></p>
-                <p>Sync Status: <span id="sync-status">--</span></p>
-            </div>
-
-            <!-- Delta & Jitter -->
-            <div class="card">
-                <h2>Clock Offset</h2>
-                <p>Delta: <span id="delta-ms">--</span> ms (<span id="delta-frames">--</span> frames)</p>
-                <p>Jitter: <span id="jitter-status">--</span></p>
+                <p class="system-date-display"><span id="system-date">---- -- --</span></p>
+                <div class="icon-group">
+                    <span id="ntp-active"></span>
+                    <span id="sync-status"></span>
+                    <span id="jitter-status"></span>
+                    <span id="delta-status"></span>
+                </div>
+                <p id="delta-text">Δ -- ms (-- frames)</p>
             </div>
 
             <!-- Network Interfaces -->
             <div class="card">
-                <h2>Network</h2>
-                <ul id="interfaces">
-                    <li>--</li>
-                </ul>
+                <div class="card-header">
+                    <img src="assets/timeturner_network.png" class="header-icon" alt="Network Icon">
+                    <h2>Network</h2>
+                </div>
+                <p id="interfaces">--</p>
             </div>
 
             <!-- Controls -->
-            <div class="card full-width">
-                <h2>Controls</h2>
+            <div class="card full-width collapsible-card">
+                <div class="toggle-header" id="controls-toggle">
+                    <img src="assets/timeturner_controls.png" class="toggle-icon" alt="Controls Icon">
+                    <h2>Controls</h2>
+                </div>
+                <div class="collapsible-content" id="controls-content">
                 <div class="control-group">
                     <label for="hw-offset">Hardware Offset (ms):</label>
                     <input type="number" id="hw-offset" name="hw-offset">
@@ -97,15 +113,29 @@
                     <button id="set-date">Set Date</button>
                     <span id="date-message"></span>
                 </div>
+                </div>
             </div>
 
             <!-- Logs -->
-            <div class="card full-width">
-                <h2>Logs</h2>
-                <pre id="logs" class="log-box"></pre>
+            <div class="card full-width collapsible-card">
+                <div class="toggle-header" id="logs-toggle">
+                    <img src="assets/timeturner_logs.png" class="toggle-icon" alt="Logs Icon">
+                    <h2>Logs</h2>
+                </div>
+                <div class="collapsible-content" id="logs-content">
+                    <pre id="logs" class="log-box"></pre>
+                </div>
             </div>
         </div>
+        <footer>
+            <p>
+                Built by Chris Frankland-Wright and John Rogers | Have Blue Broadcast Media | 
+                <a href="https://github.com/cjfranko/NTP-Timeturner" target="_blank" rel="noopener noreferrer">https://github.com/cjfranko/NTP-Timeturner</a>
+            </p>
+        </footer>
     </div>
+    <script src="icon-map.js"></script>
+    <script src="mock-data.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
