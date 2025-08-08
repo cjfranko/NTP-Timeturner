@@ -11,6 +11,11 @@
 body {
     font-family: 'FuturaStdHeavy', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: #221f1f;
+    background-image: url('assets/HaveBlueTransWh.png');
+    background-repeat: no-repeat;
+    background-position: bottom 20px right 20px;
+    background-attachment: fixed;
+    background-size: 150px;
     color: #333;
     margin: 0;
     padding: 20px;
