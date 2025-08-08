@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
     // --- Mock Data Configuration ---
     // Set to true to use mock data, false for live API.
     const useMockData = false; 
@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusElements.deltaStatus.innerHTML = `<img src="${deltaIconInfo.src}" class="status-icon" alt="" title="${deltaIconInfo.tooltip}">`;
 
         const deltaTextValue = `${data.timecode_delta_ms} ms (${data.timecode_delta_frames} frames)`;
-        statusElements.deltaText.textContent = `Delta Value: ${deltaTextValue}`;
+        statusElements.deltaText.textContent = `Δ ${deltaTextValue}`;
 
         const jitterStatus = data.jitter_status || 'UNKNOWN';
         const jitterIconInfo = iconMap.jitterStatus[jitterStatus] || iconMap.jitterStatus.default;
