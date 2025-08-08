@@ -182,6 +182,27 @@ button:hover {
     display: block;
 }
 
+footer {
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #444;
+    color: #c5ced6;
+}
+
+footer p {
+    margin: 0;
+}
+
+footer a {
+    color: #1a7db6;
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
 /* Status-specific colors */
 #sync-status.in-sync, #jitter-status.good { font-weight: bold; color: #28a745; }
 #sync-status.clock-ahead, #sync-status.clock-behind, #jitter-status.average { font-weight: bold; color: #ffc107; }
