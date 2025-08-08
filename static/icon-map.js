@@ -33,11 +33,11 @@ const iconMap = {
         '25.00': { src: 'assets/timeturner_25.png', tooltip: '25.00 frames per second' },
         '29.97': { src: 'assets/timeturner_2997.png', tooltip: '29.97 frames per second' },
         '30.00': { src: 'assets/timeturner_30.png', tooltip: '30.00 frames per second' },
-        'default': { src: 'assets/timeturner_25.png', tooltip: 'Unknown frame rate' }
+        'default': { src: 'assets/timeturner_default.png', tooltip: 'Unknown frame rate' }
     },
     lockRatio: {
-        'good': { src: 'assets/timeturner_lockratio_green.png', tooltip: 'Lock ratio is 100%.' },
-        'average': { src: 'assets/timeturner_lockratio_orange.png', tooltip: 'Lock ratio is 90% or higher.' },
-        'bad': { src: 'assets/timeturner_lockratio_red.png', tooltip: 'Lock ratio is below 90%.' }
+        'good': { src: 'assets/timeturner_lock_green.png', tooltip: 'Lock ratio is 100%.' },
+        'average': { src: 'assets/timeturner_lock_orange.png', tooltip: 'Lock ratio is 90% or higher.' },
+        'bad': { src: 'assets/timeturner_lock_red.png', tooltip: 'Lock ratio is below 90%.' }
     }
 };
