@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncStatus: document.getElementById('sync-status'),
         deltaStatus: document.getElementById('delta-status'),
         jitterStatus: document.getElementById('jitter-status'),
+        deltaText: document.getElementById('delta-text'),
         interfaces: document.getElementById('interfaces'),
         logs: document.getElementById('logs'),
     };
@@ -134,8 +135,10 @@ document.addEventListener('DOMContentLoaded', () => {
             deltaCategory = 'bad';
         }
         const deltaIconInfo = iconMap.deltaStatus[deltaCategory];
-        const deltaText = `${data.timecode_delta_ms} ms (${data.timecode_delta_frames} frames)`;
-        statusElements.deltaStatus.innerHTML = `<img src="${deltaIconInfo.src}" class="status-icon" alt="" title="${deltaIconInfo.tooltip}"><span>${deltaText}</span>`;
+        statusElements.deltaStatus.innerHTML = `<img src="${deltaIconInfo.src}" class="status-icon" alt="" title="${deltaIconInfo.tooltip}">`;
+
+        const deltaTextValue = `${data.timecode_delta_ms} ms (${data.timecode_delta_frames} frames)`;
+        statusElements.deltaText.textContent = `Delta Value: ${deltaTextValue}`;
 
         const jitterStatus = data.jitter_status || 'UNKNOWN';
         const jitterIconInfo = iconMap.jitterStatus[jitterStatus] || iconMap.jitterStatus.default;
