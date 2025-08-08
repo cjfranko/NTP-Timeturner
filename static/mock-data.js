@@ -13,7 +13,7 @@ const mockApiDataSets = {
             timecode_delta_ms: 5,
             timecode_delta_frames: 0.125,
             jitter_status: 'GOOD',
-            interfaces: ['192.168.1.100 (eth0)', '10.0.0.5 (wlan0)'],
+            interfaces: ['192.168.1.100/24 (eth0)', '10.0.0.5/8 (wlan0)'],
         },
         config: {
             hardwareOffsetMs: 10,
@@ -40,7 +40,7 @@ const mockApiDataSets = {
             timecode_delta_ms: 3,
             timecode_delta_frames: 0.075,
             jitter_status: 'GOOD',
-            interfaces: ['192.168.1.100 (eth0)'],
+            interfaces: ['192.168.1.100/24 (eth0)'],
         },
         config: {
             hardwareOffsetMs: 10,
@@ -63,7 +63,7 @@ const mockApiDataSets = {
             timecode_delta_ms: -500,
             timecode_delta_frames: -12.5,
             jitter_status: 'AVERAGE',
-            interfaces: ['192.168.1.100 (eth0)'],
+            interfaces: ['192.168.1.100/24 (eth0)'],
         },
         config: {
             hardwareOffsetMs: 10,
@@ -86,7 +86,7 @@ const mockApiDataSets = {
             timecode_delta_ms: 800,
             timecode_delta_frames: 20,
             jitter_status: 'AVERAGE',
-            interfaces: ['192.168.1.100 (eth0)'],
+            interfaces: ['192.168.1.100/24 (eth0)'],
         },
         config: {
             hardwareOffsetMs: 10,
@@ -109,7 +109,7 @@ const mockApiDataSets = {
             timecode_delta_ms: 3723050, // a big number
             timecode_delta_frames: 93076,
             jitter_status: 'GOOD',
-            interfaces: ['192.168.1.100 (eth0)'],
+            interfaces: ['192.168.1.100/24 (eth0)'],
         },
         config: {
             hardwareOffsetMs: 10,
@@ -132,7 +132,7 @@ const mockApiDataSets = {
             timecode_delta_ms: 10,
             timecode_delta_frames: 0.25,
             jitter_status: 'BAD',
-            interfaces: ['192.168.1.100 (eth0)'],
+            interfaces: ['192.168.1.100/24 (eth0)'],
         },
         config: {
             hardwareOffsetMs: 10,
