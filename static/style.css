@@ -65,6 +65,13 @@ body {
     letter-spacing: 2px;
 }
 
+#interfaces {
+    text-align: center;
+    white-space: nowrap;
+    overflow-x: auto;
+    padding-bottom: 5px; /* Add some space for the scrollbar if it appears */
+}
+
 .full-width {
     grid-column: 1 / -1;
 }
