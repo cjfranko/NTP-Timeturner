@@ -26,6 +26,17 @@ Created by Chris Frankland-Wright and John Rogers
 - Broadcasts time via local NTP server
 - Supports configurable time offsets (hours, minutes, seconds, frames or milliseconds)
 - Systemd service support for headless operation
+- Web-based UI for monitoring and control when running as a daemon
+
+---
+
+## 🖥️ Web Interface & API
+
+When running as a background daemon, TimeTurner provides a web interface for monitoring and configuration.
+
+- **Access**: The web UI is available at `http://<raspberry_pi_ip>:8080`.
+- **Functionality**: You can view the real-time sync status, see logs, and change all configuration options directly from your browser.
+- **API**: A JSON API is also exposed for programmatic access. See `docs/api.md` for full details.
 
 ---
 

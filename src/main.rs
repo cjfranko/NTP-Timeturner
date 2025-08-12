@@ -193,11 +193,13 @@ async fn main() {
         });
     }
 
-    // 5️⃣ Spawn UI or setup daemon logging
+    // 5️⃣ Spawn UI or setup daemon logging. The web service is only started
+    // when running as a daemon. The TUI is for interactive foreground use.
     if args.command.is_none() {
+        // --- Interactive TUI Mode ---
         log::info!("🔧 Watching config.yml...");
         log::info!("🚀 Serial thread launched");
-        log::info!("🖥️ UI thread launched");
+        log::info!("🖥️  UI thread launched");
         let ui_state = ltc_state.clone();
         let config_clone = config.clone();
         let port = serial_port_path;
@@ -205,8 +207,10 @@ async fn main() {
             start_ui(ui_state, port, config_clone);
         });
     } else {
+        // --- Daemon Mode ---
         // In daemon mode, logging is already set up to go to stderr.
-        // The systemd service will capture it.
+        // The systemd service will capture it. The web service (API and static files)
+        // is launched later in the main async block.
         log::info!("🚀 Starting TimeTurner daemon...");
     }
 
@@ -282,7 +286,10 @@ async fn main() {
     let local = LocalSet::new();
     local
         .run_until(async move {
-            // 8️⃣ Spawn the API server thread
+            // 8️⃣ Spawn the API server task.
+            // This server provides the JSON API and serves the static web UI files
+            // from the `static/` directory. It runs in both TUI and daemon modes,
+            // but is primarily for the web UI used in daemon mode.
             {
                 let api_state = ltc_state.clone();
                 let config_clone = config.clone();
