@@ -62,11 +62,11 @@
                     <h2>Controls</h2>
                 </div>
                 <div class="collapsible-content" id="controls-content">
-                    <div class="control-group">
+                    <div class="control-group" style="display: none;">
         <label for="hw-offset">Hardware Offset (ms):</label>
         <input type="number" id="hw-offset" name="hw-offset">
     </div>
-    <div class="control-group">
+    <div class="control-group" style="display: none;">
         <input type="checkbox" id="auto-sync-enabled" name="auto-sync-enabled" style="vertical-align: middle;">
         <label for="auto-sync-enabled" style="vertical-align: middle;">Enable Auto Sync</label>
     </div>
@@ -100,7 +100,7 @@
                         <button id="manual-sync">Manual Sync</button>
                         <span id="sync-message"></span>
                     </div>
-                    <div class="control-group">
+                    <div class="control-group" style="display: none;">
                         <label>Nudge Clock (ms):</label>
                         <button id="nudge-down">-</button>
                         <input type="number" id="nudge-value" style="width: 60px;">
