@@ -132,6 +132,33 @@ button:hover {
     background-color: #166999;
 }
 
+.offset-controls-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.offset-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.offset-control input[type="number"] {
+    width: 40px;
+    text-align: center;
+}
+
+.offset-control label {
+    font-size: 14px;
+    color: #333;
+}
+
+#offset-ms {
+    width: 60px;
+}
+
 #sync-message {
     font-style: italic;
     color: #555;

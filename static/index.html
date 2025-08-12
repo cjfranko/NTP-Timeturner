@@ -72,26 +72,26 @@
     </div>
                     <div class="control-group">
                         <label>Timeturner Offset</label>
-                        <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start;">
-                            <div style="display: flex; flex-direction: column;">
-                                <label for="offset-h">Hours</label>
-                                <input type="number" id="offset-h" style="width: 60px;">
+                        <div class="offset-controls-container">
+                            <div class="offset-control">
+                                <input type="number" id="offset-h" min="-99" max="99">
+                                <label for="offset-h">hr</label>
                             </div>
-                            <div style="display: flex; flex-direction: column;">
-                                <label for="offset-m">Minutes</label>
-                                <input type="number" id="offset-m" style="width: 60px;">
+                            <div class="offset-control">
+                                <input type="number" id="offset-m" min="-99" max="99">
+                                <label for="offset-m">min</label>
                             </div>
-                            <div style="display: flex; flex-direction: column;">
-                                <label for="offset-s">Seconds</label>
-                                <input type="number" id="offset-s" style="width: 60px;">
+                            <div class="offset-control">
+                                <input type="number" id="offset-s" min="-99" max="99">
+                                <label for="offset-s">sec</label>
                             </div>
-                            <div style="display: flex; flex-direction: column;">
-                                <label for="offset-f">Frames</label>
-                                <input type="number" id="offset-f" style="width: 60px;">
+                            <div class="offset-control">
+                                <input type="number" id="offset-f" min="-99" max="99">
+                                <label for="offset-f">fr</label>
                             </div>
-                            <div style="display: flex; flex-direction: column;">
-                                <label for="offset-ms">Milliseconds</label>
-                                <input type="number" id="offset-ms" style="width: 60px;">
+                            <div class="offset-control">
+                                <input type="number" id="offset-ms">
+                                <label for="offset-ms">ms</label>
                             </div>
                         </div>
                     </div>
