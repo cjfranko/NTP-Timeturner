@@ -4,6 +4,9 @@ After=network.target
 
 [Service]
 Type=forking
+# The 'timeturner daemon' command starts the background process.
+# It requires 'config.yml' and the 'static/' web assets directory
+# to be present in the WorkingDirectory.
 ExecStart=/opt/timeturner/timeturner daemon
 WorkingDirectory=/opt/timeturner
 PIDFile=/opt/timeturner/ntp_timeturner.pid

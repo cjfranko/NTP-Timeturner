@@ -21,11 +21,13 @@ echo "🔧 Creating directories..."
 sudo mkdir -p $INSTALL_DIR
 echo "✅ Directory $INSTALL_DIR created."
 
-# 3. Install binary
-echo "🚀 Installing timeturner binary..."
+# 3. Install binary and static web files
+echo "🚀 Installing timeturner binary and web assets..."
 sudo cp target/release/ntp_timeturner $INSTALL_DIR/timeturner
+# The static directory contains the web UI files
+sudo cp -r static $INSTALL_DIR/
 sudo ln -sf $INSTALL_DIR/timeturner $BIN_DIR/timeturner
-echo "✅ Binary installed to $INSTALL_DIR and linked to $BIN_DIR."
+echo "✅ Binary and assets installed to $INSTALL_DIR, and binary linked to $BIN_DIR."
 
 # 4. Install systemd service file
 if [[ "$(uname)" == "Linux" ]]; then
