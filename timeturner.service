@@ -1,0 +1,15 @@
+[Unit]
+Description=NTP TimeTurner Daemon
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/opt/timeturner/timeturner daemon
+WorkingDirectory=/opt/timeturner
+PIDFile=/opt/timeturner/ntp_timeturner.pid
+Restart=always
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
