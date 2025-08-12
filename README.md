@@ -26,6 +26,17 @@ Created by Chris Frankland-Wright and John Rogers
 - Broadcasts time via local NTP server
 - Supports configurable time offsets (hours, minutes, seconds, frames or milliseconds)
 - Systemd service support for headless operation
+- Web-based UI for monitoring and control when running as a daemon
+
+---
+
+## 🖥️ Web Interface & API
+
+When running as a background daemon, TimeTurner provides a web interface for monitoring and configuration.
+
+- **Access**: The web UI is available at `http://<raspberry_pi_ip>:8080`.
+- **Functionality**: You can view the real-time sync status, see logs, and change all configuration options directly from your browser.
+- **API**: A JSON API is also exposed for programmatic access. See `docs/api.md` for full details.
 
 ---
 
@@ -37,19 +48,42 @@ Created by Chris Frankland-Wright and John Rogers
 
 ---
 
-## 🚀 Installation (to update)
+## 🚀 Installation
 
-For Rust install you can do 
-```bash
-cargo install --git https://github.com/cjfranko/NTP-Timeturner
-```
-Clone and run the installer:
+The `setup.sh` script is provided to compile and install the TimeTurner application and its systemd service on a Debian-based system like Raspberry Pi OS.
 
-```bash
-wget https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/master/setup.sh
-chmod +x setup.sh
-./setup.sh
-```
+### Prerequisites
+
+- **Rust and Cargo**: The script requires the Rust programming language toolchain. If you don't have it, install it from [rustup.rs](https://rustup.rs/).
+
+### Running the Installer
+
+1.  First, clone the repository:
+    ```bash
+    git clone https://github.com/cjfranko/NTP-Timeturner.git
+    cd NTP-Timeturner
+    ```
+2.  Make the script executable and run it. The script will use `sudo` for commands that require root privileges, so it may ask for your password.
+    ```bash
+    chmod +x setup.sh
+    ./setup.sh
+    ```
+
+### What the Script Does
+
+The installation script automates the following steps:
+
+1.  **Compiles the Binary**: Runs `cargo build --release` to create an optimised executable.
+2.  **Creates Directories**: Creates `/opt/timeturner` to store the application files.
+3.  **Installs Files**: 
+    - The compiled binary is copied to `/opt/timeturner/timeturner`.
+    - The web interface assets from the `static/` directory are copied to `/opt/timeturner/static`.
+    - A symbolic link is created from `/usr/local/bin/timeturner` to the binary, allowing it to be run from any location.
+4.  **Sets up Systemd Service**: 
+    - Copies the `timeturner.service` file to `/etc/systemd/system/`.
+    - Enables the service to start automatically on system boot.
+
+After installation is complete, the script will provide instructions to start the service manually or to run the application in its interactive terminal mode.
 
 ---
 ## 🕰️ Chrony NTP 

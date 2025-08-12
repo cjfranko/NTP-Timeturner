@@ -15,7 +15,7 @@ body {
     background-repeat: no-repeat;
     background-position: bottom 20px right 20px;
     background-attachment: fixed;
-    background-size: 300px;
+    background-size: 100px;
     color: #333;
     margin: 0;
     padding: 20px;
@@ -88,25 +88,75 @@ body {
     gap: 10px;
 }
 
-input[type="number"] {
+input[type="number"],
+input[type="text"] {
     padding: 8px;
-    border: 1px solid #ccc;
+    border: 1px solid #9fb3c8;
     border-radius: 4px;
+    background-color: #f0f4f8;
+    font-family: inherit;
+    font-size: 14px;
+    color: #333;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus {
+    outline: none;
+    border-color: #1a7db6;
+    box-shadow: 0 0 0 2px rgba(26, 125, 182, 0.2);
+}
+
+input[type="number"] {
     width: 80px;
+}
+
+input[type="text"] {
+    width: auto;
 }
 
 button {
     padding: 8px 15px;
     border: none;
     border-radius: 4px;
-    background-color: #007bff;
+    background-color: #1a7db6;
     color: white;
     cursor: pointer;
     font-size: 14px;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    transition: background-color 0.2s;
 }
 
 button:hover {
-    background-color: #0056b3;
+    background-color: #166999;
+}
+
+.offset-controls-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.offset-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.offset-control input[type="number"] {
+    width: 40px;
+    text-align: center;
+}
+
+.offset-control label {
+    font-size: 14px;
+    color: #333;
+}
+
+#offset-ms {
+    width: 60px;
 }
 
 #sync-message {
