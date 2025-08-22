@@ -96,7 +96,7 @@ Add to top:
 # Serve the system clock as a reference at stratum 10
 server 127.127.1.0
 allow 127.0.0.0/8
-local stratum 10
+local stratum 1
 
 Add to bottom:
 # Allow LAN clients
