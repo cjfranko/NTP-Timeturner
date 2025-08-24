@@ -48,13 +48,51 @@ fi
 echo "Installing common build dependencies..."
 if [ "$PKG_MANAGER" == "apt" ]; then
     sudo apt update
-    sudo apt install -y build-essential libudev-dev pkg-config
+    sudo apt install -y build-essential libudev-dev pkg-config curl
 elif [ "$PKG_MANAGER" == "dnf" ]; then
-    sudo dnf install -y gcc make perl-devel libudev-devel pkg-config
+    sudo dnf install -y gcc make perl-devel libudev-devel pkg-config curl
 elif [ "$PKG_MANAGER" == "pacman" ]; then
-    sudo pacman -Sy --noconfirm base-devel libudev pkg-config
+    sudo pacman -Sy --noconfirm base-devel libudev pkg-config curl
 fi
 echo "Common build dependencies installed."
+
+# --- Apply custom splash screen ---
+if [[ "$(uname)" == "Linux" ]]; then
+    echo "🖼️  Applying custom splash screen..."
+    SPLASH_URL="https://raw.githubusercontent.com/cjfranko/NTP-Timeturner/refs/heads/main/splash.png"
+    PLYMOUTH_THEME_DIR="/usr/share/plymouth/themes/pix"
+    PLYMOUTH_IMAGE_PATH="${PLYMOUTH_THEME_DIR}/splash.png"
+
+    sudo mkdir -p "${PLYMOUTH_THEME_DIR}"
+    echo "Downloading splash image from ${SPLASH_URL}..."
+    sudo curl -L "${SPLASH_URL}" -o "${PLYMOUTH_IMAGE_PATH}"
+    
+    if [ -f "${PLYMOUTH_IMAGE_PATH}" ]; then
+        echo "Splash image downloaded. Updating Plymouth configuration..."
+        # Set 'pix' as the default plymouth theme if not already.
+        # This is a common theme that expects splash.png.
+        sudo update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth "${PLYMOUTH_THEME_DIR}/pix.plymouth" 100 || true
+        # Ensure the pix theme exists and is linked
+        if [ ! -f "${PLYMOUTH_THEME_DIR}/pix.plymouth" ]; then
+             echo "Creating dummy pix.plymouth for update-initramfs"
+             echo "[Plymouth Theme]" | sudo tee "${PLYMOUTH_THEME_DIR}/pix.plymouth" > /dev/null
+             echo "Name=Pi Splash" | sudo tee -a "${PLYMOUTH_THEME_DIR}/pix.plymouth" > /dev/null
+             echo "Description=TimeTurner Raspberry Pi Splash Screen" | sudo tee -a "${PLYMOUTH_THEME_DIR}/pix.plymouth" > /dev/null
+             echo "SpriteAnimation=/splash.png" | sudo tee -a "${PLYMOUTH_THEME_DIR}/pix.plymouth" > /dev/null
+        fi
+
+        # Update the initial RAM filesystem to include the new splash screen
+        sudo update-initramfs -u
+        echo "✅ Custom splash screen applied. Reboot may be required to see changes."
+    else
+        echo "❌ Failed to download splash image from ${SPLASH_URL}."
+    fi
+else
+    echo "⚠️  Skipping splash screen configuration on non-Linux OS."
+fi
+
+# --- Remove NTPD and install Chrony, NMTUI, Adjtimex ---
+echo "Removing NTPD (if installed) and installing Chrony, NMTUI, Adjtimex..."
 
 # --- Remove NTPD and install Chrony, NMTUI, Adjtimex ---
 echo "Removing NTPD (if installed) and installing Chrony, NMTUI, Adjtimex..."
