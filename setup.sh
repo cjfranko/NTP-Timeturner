@@ -18,6 +18,17 @@ fi
 
 echo "Detected package manager: $PKG_MANAGER"
 
+# --- Update System Packages ---
+echo "Updating system packages..."
+if [ "$PKG_MANAGER" == "apt" ]; then
+    sudo apt update && sudo apt upgrade -y
+elif [ "$PKG_MANAGER" == "dnf" ]; then
+    sudo dnf upgrade -y
+elif [ "$PKG_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm
+fi
+echo "System packages updated."
+
 # --- Install Rust/Cargo if not installed ---
 if ! command -v cargo &> /dev/null; then
     echo "Rust/Cargo not found. Installing Rustup..."
