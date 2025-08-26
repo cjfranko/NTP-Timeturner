@@ -116,6 +116,80 @@ fi
 
 echo "NTPD removed (if present). Chrony, NMTUI, and Adjtimex installed and configured."
 
+# --- Install and configure WiFi hotspot and captive portal ---
+echo "📡 Installing and configuring WiFi hotspot and captive portal..."
+
+if [ "$PKG_MANAGER" == "apt" ]; then
+    sudo apt install -y hostapd dnsmasq nodogsplash
+    sudo systemctl unmask hostapd
+    sudo systemctl enable hostapd
+    sudo systemctl enable nodogsplash
+fi
+
+# Stop services to configure
+sudo systemctl stop hostapd
+sudo systemctl stop dnsmasq
+sudo systemctl stop nodogsplash
+
+# Configure static IP for wlan0
+echo "Configuring static IP for wlan0..."
+sudo sed -i '/^interface wlan0/d' /etc/dhcpcd.conf
+sudo tee -a /etc/dhcpcd.conf > /dev/null <<EOF
+interface wlan0
+    static ip_address=10.0.252.1/24
+    nohook wpa_supplicant
+EOF
+
+# Configure dnsmasq for DHCP
+echo "Configuring dnsmasq..."
+sudo tee /etc/dnsmasq.conf > /dev/null <<EOF
+interface=wlan0
+dhcp-range=10.0.252.10,10.0.252.50,255.255.255.0,24h
+address=/#/10.0.252.1
+EOF
+
+# Configure hostapd
+echo "Configuring hostapd..."
+sudo tee /etc/hostapd/hostapd.conf > /dev/null <<EOF
+interface=wlan0
+driver=nl80211
+ssid=TimeTurner
+hw_mode=g
+channel=7
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase=harry-ron-hermione
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+EOF
+
+sudo sed -i 's|#DAEMON_CONF=""|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
+
+# Configure nodogsplash for captive portal
+echo "Configuring nodogsplash..."
+sudo tee /etc/nodogsplash/nodogsplash.conf > /dev/null <<EOF
+GatewayInterface wlan0
+GatewayAddress 10.0.252.1
+MaxClients 50
+ClientIdleTimeout 3600
+FirewallRuleSet preauthenticated-users {
+    FirewallRule allow tcp port 80
+}
+RedirectURL http://10.0.252.1/static/index.html
+EOF
+
+# Restart services
+sudo systemctl restart dhcpcd
+sudo systemctl restart dnsmasq
+sudo systemctl restart hostapd
+sudo systemctl restart nodogsplash
+
+echo "✅ WiFi hotspot and captive portal configured. SSID: TimeTurner, IP: 10.0.252.1"
+echo "Clients will be redirected to http://10.0.252.1/static/index.html"
+
 # 1. Build the release binary
 echo "📦 Building release binary with Cargo..."
 # No need to check for cargo again, as it's handled above
