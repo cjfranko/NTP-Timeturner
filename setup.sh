@@ -212,6 +212,7 @@ sudo ln -sf $INSTALL_DIR/timeturner $BIN_DIR/timeturner
 echo "✅ Binary and assets installed to $INSTALL_DIR, and binary linked to $BIN_DIR."
 
 # 4. Install systemd service file
+# Only needed for Linux systems (e.g., Raspberry Pi OS)
 if [[ "$(uname)" == "Linux" ]]; then
     echo "⚙️  Installing systemd service for Linux..."
     sudo cp timeturner.service /etc/systemd/system/
@@ -226,7 +227,13 @@ echo ""
 echo "--- Setup Complete ---"
 echo "The TimeTurner daemon is now installed."
 echo "The working directory is $INSTALL_DIR."
-echo "A default 'config.yml' will be created there on first run."
+# Copy default config.yml from repo if it exists
+if [ -f config.yml ]; then
+    sudo cp config.yml $INSTALL_DIR/
+    echo "Default 'config.yml' installed to $INSTALL_DIR."
+else
+    echo "⚠️  No default 'config.yml' found in repository. Please add one if needed."
+fi
 echo ""
 if [[ "$(uname)" == "Linux" ]]; then
     echo "To start the service, run:"
