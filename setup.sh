@@ -291,7 +291,12 @@ sudo systemctl reload NetworkManager
 echo "Configuring static IP for wlan0 via dhcpcd..."
 # Ensure dhcpcd is installed
 sudo apt install -y dhcpcd5
-# Add our static IP config, being careful not to overwrite existing settings
+
+# First, remove any existing configurations for wlan0 to prevent conflicts.
+# This is a more robust way to ensure our settings are applied.
+sudo sed -i '/^interface wlan0/,/^\s*$/d' /etc/dhcpcd.conf
+
+# Now, add our static IP config to the end of the file.
 sudo tee -a /etc/dhcpcd.conf > /dev/null <<EOF
 
 # Static IP configuration for Hachi Time AP
