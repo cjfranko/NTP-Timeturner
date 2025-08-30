@@ -3,6 +3,40 @@ set -e
 
 echo "--- TimeTurner Setup ---"
 
+# Check if TimeTurner is already installed.
+INSTALL_DIR="/opt/timeturner"
+if [ -f "${INSTALL_DIR}/timeturner" ]; then
+    echo "✅ TimeTurner is already installed."
+    # Ask the user what to do
+    read -p "Do you want to (U)pdate, (R)einstall, or (A)bort? [U/r/a] " choice
+    case "$choice" in
+        r|R )
+            echo "Proceeding with full re-installation..."
+            # The script will continue to the installation steps below.
+            ;;
+        a|A )
+            echo "Aborting setup."
+            exit 0
+            ;;
+        * ) # Default to Update
+            echo "Attempting to run the update script..."
+            # Ensure we are in a git repository and the update script exists
+            if [ -d ".git" ] && [ -f "update.sh" ]; then
+                chmod +x update.sh
+                ./update.sh
+                # Exit cleanly after the update
+                exit 0
+            else
+                echo "⚠️  Could not find 'update.sh' or not in a git repository."
+                echo "Please re-clone the repository to get the update script, or remove the existing installation to run setup again:"
+                echo "  sudo rm -rf ${INSTALL_DIR}"
+                exit 1
+            fi
+            ;;
+    esac
+fi
+
+
 # Determine package manager
 PKG_MANAGER=""
 if command -v apt &> /dev/null; then
@@ -244,6 +278,15 @@ sudo systemctl stop dnsmasq || true
 # This is the critical fix for the "No suitable device" error.
 echo "Ensuring NetworkManager is managing wlan0..."
 sudo rm -f /etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf
+
+# Prevent NetworkManager from running its own dnsmasq instance or managing resolv.conf.
+# This allows our standalone dnsmasq service to function without conflict.
+echo "Configuring NetworkManager to not manage DNS..."
+sudo tee /etc/NetworkManager/conf.d/99-disable-dns.conf > /dev/null <<EOF
+[main]
+dns=none
+EOF
+
 sudo systemctl reload NetworkManager
 
 # Configure static IP for wlan0 using NetworkManager (nmcli)
