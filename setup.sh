@@ -218,7 +218,7 @@ sudo tee /etc/nodogsplash/nodogsplash.conf > /dev/null <<EOF
 GatewayInterface wlan0
 GatewayAddress 10.0.252.1
 MaxClients 250
-ClientIdleTimeout 480
+AuthIdleTimeout 480
 # Enable DHCP server in nodogsplash
 DHCPInterface wlan0
 DHCPStartAddress 10.0.252.10
@@ -292,7 +292,7 @@ echo "✅ Directory $INSTALL_DIR created."
 
 # 3. Install binary and static web files
 echo "🚀 Installing timeturner binary and web assets..."
-sudo cp target/release/ntp_tim_turner $INSTALL_DIR/timeturner
+sudo cp target/release/ntp_timeturner $INSTALL_DIR/timeturner
 # The static directory contains the web UI files
 sudo cp -r static $INSTALL_DIR/
 sudo ln -sf $INSTALL_DIR/timeturner $BIN_DIR/timeturner
