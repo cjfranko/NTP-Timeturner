@@ -12,8 +12,8 @@ defaultNudgeMs: 2
 # Time-turning offsets. All values are added to the incoming LTC time.
 # These can be positive or negative.
 timeturnerOffset:
-  hours: 1
-  minutes: 2
-  seconds: 3
-  frames: 4
-  milliseconds: 5
+  hours: 0
+  minutes: 0
+  seconds: 0
+  frames: 0
+  milliseconds: 0
