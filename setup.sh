@@ -121,10 +121,14 @@ echo "NTPD removed (if present). Chrony, NMTUI, and Adjtimex installed and confi
 echo "📡 Installing and configuring WiFi hotspot and captive portal..."
 
 if [ "$PKG_MANAGER" == "apt" ]; then
-    # Install dependencies for hotspot and for building nodogsplash
-    sudo apt install -y hostapd dnsmasq git libmicrohttpd-dev libjson-c-dev iptables
+    # Ensure dnsmasq is removed to prevent conflicts with nodogsplash's DHCP server.
+    echo "Removing dnsmasq to prevent conflicts..."
+    sudo apt-get remove --purge -y dnsmasq || true
+
+    # Install dependencies for hotspot and for building nodogsplash. dnsmasq is no longer needed.
+    sudo apt install -y hostapd git libmicrohttpd-dev libjson-c-dev iptables
     
-    # Force iptables-legacy for nodogsplash compatibility
+    # Force iptables-legacy for nodogsplash
     echo "Setting iptables-legacy mode for nodogsplash..."
     sudo update-alternatives --set iptables /usr/sbin/iptables-legacy
     sudo update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
@@ -166,7 +170,7 @@ fi
 # Stop services to configure
 # Ensure services exist before trying to stop them
 sudo systemctl stop hostapd || true
-sudo systemctl stop dnsmasq || true
+# sudo systemctl stop dnsmasq || true # dnsmasq is no longer used
 if command -v nodogsplash &> /dev/null; then
     sudo systemctl stop nodogsplash || true
 fi
@@ -200,21 +204,25 @@ sudo nmcli c modify "$CON_NAME" 802-11-wireless-security.key-mgmt wpa-psk
 sudo nmcli c modify "$CON_NAME" 802-11-wireless-security.psk "harry-ron-hermione"
 sudo nmcli c modify "$CON_NAME" ipv4.method manual ipv4.addresses 10.0.252.1/24
 
-# Configure dnsmasq for DHCP
-echo "Configuring dnsmasq..."
-sudo tee /etc/dnsmasq.conf > /dev/null <<EOF
-interface=wlan0
-dhcp-range=10.0.252.10,10.0.252.50,255.255.255.0,24h
-address=/#/10.0.252.1
-EOF
+# dnsmasq is no longer used. nodogsplash will handle DHCP.
+# echo "Configuring dnsmasq..."
+# sudo tee /etc/dnsmasq.conf > /dev/null <<EOF
+# interface=wlan0
+# dhcp-range=10.0.252.10,10.0.252.50,255.255.255.0,24h
+# address=/#/10.0.252.1
+# EOF
 
-# Configure nodogsplash for captive portal
+# Configure nodogsplash for captive portal and DHCP
 echo "Configuring nodogsplash..."
 sudo tee /etc/nodogsplash/nodogsplash.conf > /dev/null <<EOF
 GatewayInterface wlan0
 GatewayAddress 10.0.252.1
 MaxClients 250
 ClientIdleTimeout 480
+# Enable DHCP server in nodogsplash
+DHCPInterface wlan0
+DHCPStartAddress 10.0.252.10
+DHCPEndAddress 10.0.252.50
 FirewallRuleSet preauthenticated-users {
     FirewallRule allow tcp port 80
     FirewallRule allow tcp port 53
@@ -245,7 +253,7 @@ done
 # Check for the IP address before starting nodogsplash
 if [ "$IP_CHECK" == "10.0.252.1" ]; then
     echo "✅ wlan0 configured with IP $IP_CHECK."
-    sudo systemctl restart dnsmasq
+    # sudo systemctl restart dnsmasq # dnsmasq is no longer used
     if command -v nodogsplash &> /dev/null; then
         sudo systemctl restart nodogsplash
     fi
