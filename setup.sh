@@ -355,6 +355,12 @@ EOF
 
 # Restart services in the correct order and add delays to prevent race conditions
 echo "Restarting services..."
+
+# Stop and disable systemd-resolved to prevent any DNS/DHCP conflicts
+echo "Disabling systemd-resolved to ensure dnsmasq has full control..."
+sudo systemctl stop systemd-resolved || true
+sudo systemctl disable systemd-resolved || true
+
 # Restart dhcpcd to apply the static IP
 sudo systemctl restart dhcpcd
 # Restart hostapd to create the access point
@@ -377,7 +383,19 @@ done
 # Check for the IP address before starting nodogsplash
 if [ "$IP_CHECK" == "10.0.252.1" ]; then
     echo "✅ wlan0 configured with IP $IP_CHECK."
-    sudo systemctl restart dnsmasq
+    
+    # Add a small delay to ensure the interface is fully ready for dnsmasq
+    sleep 2 
+
+    echo "Attempting to start dnsmasq service..."
+    if ! sudo systemctl restart dnsmasq; then
+        echo "❌ dnsmasq service failed to start. Displaying logs..."
+        sleep 2
+        sudo journalctl -u dnsmasq.service --no-pager -n 50
+        exit 1
+    fi
+    echo "✅ dnsmasq service started successfully."
+
     if command -v nodogsplash &> /dev/null; then
         echo "Attempting to start nodogsplash service..."
         if ! sudo systemctl restart nodogsplash; then
