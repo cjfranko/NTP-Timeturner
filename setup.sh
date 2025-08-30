@@ -171,6 +171,12 @@ if command -v nodogsplash &> /dev/null; then
     sudo systemctl stop nodogsplash || true
 fi
 
+# Ensure NetworkManager is managing wlan0 by removing any conflicting configurations.
+# This is the critical fix for the "No suitable device" error.
+echo "Ensuring NetworkManager is managing wlan0..."
+sudo rm -f /etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf
+sudo systemctl reload NetworkManager
+
 # Configure static IP for wlan0 using NetworkManager (nmcli)
 echo "Configuring static IP for wlan0 using NetworkManager..."
 
