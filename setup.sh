@@ -165,10 +165,64 @@ if command -v nodogsplash &> /dev/null; then
     sudo systemctl stop nodogsplash || true
 fi
 
-# Configure static IP for wlan0
-echo "Configuring static IP for wlan0..."
-sudo sed -i '/^interface wlan0/d' /etc/dhcpcd.conf
-sudo tee -a /etc/dhcpcd.conf > /dev/null <<EOF
+# Configure static IP for wlan0 using NetworkManager (nmcli)
+echo "Configuring static IP for wlan0 using NetworkManager..."
+# Check if a connection for wlan0 already exists and delete it to start fresh
+if nmcli -t -f NAME,DEVICE c show --active | grep -q "wlan0"; then
+    ACTIVE_CON=$(nmcli -t -f NAME,DEVICE c show --active | grep "wlan0" | cut -d':' -f1)
+    echo "Temporarily deactivating existing connection on wlan0: $ACTIVE_CON"
+    sudo nmcli c down "$ACTIVE_CON" || true
+fi
+
+# Create a new connection profile for the AP
+# This sets the static IP and configures it to not manage this interface for other connections.
+sudo tee /etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf > /dev/null <<EOF
+[keyfile]
+unmanaged-devices=interface-name:wlan0
+EOF
+# Reload NetworkManager to apply the unmanaged device setting
+sudo systemctl reload NetworkManager
+
+# Now, configure the static IP using a method that doesn't rely on NetworkManager's main loop
+# We will use dhcpcd for this specific interface, as it's simpler for a static AP setup.
+# First, ensure dhcpcd is installed.
+if [ "$PKG_MANAGER" == "apt" ]; then
+    sudo apt install -y dhcpcd5
+fi
+
+# Configure static IP for wlan0 in dhcpcd.conf
+sudo tee /etc/dhcpcd.conf > /dev/null <<EOF
+# A sample configuration for dhcpcd.
+# See dhcpcd.conf(5) for details.
+
+# Allow users of this group to interact with dhcpcd via the control socket.
+#controlgroup wheel
+
+# Inform the DHCP server of our hostname for DDNS.
+hostname
+
+# Use the hardware address of the interface for the Client ID.
+clientid
+
+# Persist interface configuration when dhcpcd exits.
+persistent
+
+# Rapid commit support.
+# Safe to enable by default because it requires the equivalent option set
+# on the server to actually work.
+option rapid_commit
+
+# A list of options to request from the DHCP server.
+option domain_name_servers, domain_name, domain_search, host_name
+option classless_static_routes
+# Respect the network MTU. This is applied to DHCP routes.
+option interface_mtu
+
+# A hook script is provided to lookup the hostname if not set by the DHCP
+# server, but it should not be run by default.
+nohook lookup-hostname
+
+# Static IP configuration for TimeTurner AP
 interface wlan0
     static ip_address=10.0.252.1/24
     nohook wpa_supplicant
@@ -221,7 +275,9 @@ EOF
 sudo systemctl restart dhcpcd
 sudo systemctl restart dnsmasq
 sudo systemctl restart hostapd
-sudo systemctl restart nodogsplash
+if command -v nodogsplash &> /dev/null; then
+    sudo systemctl restart nodogsplash
+fi
 
 echo "✅ WiFi hotspot and captive portal configured. SSID: TimeTurner, IP: 10.0.252.1"
 echo "Clients will be redirected to http://10.0.252.1/static/index.html"
@@ -276,7 +332,7 @@ if [[ "$(uname)" == "Linux" ]]; then
     echo "  sudo systemctl start timeturner.service"
     echo ""
     echo "To view live logs, run:"
-    echo "  journalctl -u timeturner.service -f"
+    echo "  journalctl -u tim_turner.service -f"
     echo ""
 fi
 echo "To run the interactive TUI instead, simply run from the project directory:"
