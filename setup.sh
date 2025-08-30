@@ -122,7 +122,7 @@ echo "📡 Installing and configuring WiFi hotspot and captive portal..."
 
 if [ "$PKG_MANAGER" == "apt" ]; then
     # Install dependencies for hotspot and for building nodogsplash
-    sudo apt install -y hostapd dnsmasq git libmicrohttpd-dev
+    sudo apt install -y hostapd dnsmasq git libmicrohttpd-dev libjson-c-dev
     
     echo "Building and installing nodogsplash from source..."
     # Create a temporary directory for the build
