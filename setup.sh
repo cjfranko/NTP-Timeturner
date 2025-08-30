@@ -136,6 +136,10 @@ echo "NTPD removed (if present). Chrony, NMTUI, and Adjtimex installed and confi
 echo "📡 Installing and configuring WiFi hotspot and captive portal..."
 
 if [ "$PKG_MANAGER" == "apt" ]; then
+    # Stop the service if it's running from a previous installation to prevent "Text file busy" error.
+    echo "Stopping existing nodogsplash service before installation..."
+    sudo systemctl stop nodogsplash || true
+
     # We will use dnsmasq for DHCP, as the compiled nodogsplash version may not support the internal DHCP server.
     # sudo apt-get remove --purge -y dnsmasq || true # This line is no longer needed.
 
@@ -187,9 +191,6 @@ fi
 # Ensure services exist before trying to stop them
 sudo systemctl stop hostapd || true
 sudo systemctl stop dnsmasq || true
-if command -v nodogsplash &> /dev/null; then
-    sudo systemctl stop nodogsplash || true
-fi
 
 # Ensure NetworkManager is managing wlan0 by removing any conflicting configurations.
 # This is the critical fix for the "No suitable device" error.
