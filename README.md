@@ -1,8 +1,8 @@
-﻿# 🕰️ NTP Timeturner (alpha)
+﻿# Fetch | Hachi (alpha)
 
-**An LTC-driven NTP server for Raspberry Pi, built with broadcast precision and a hint of magic.**
+**An LTC-driven NTP server for Raspberry Pi, built with broadcast precision**
 
-Inspired by the TimeTurner in the Harry Potter series, this project synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP — with precision as Hermione would insist upon.
+Hachi synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP/PTP — with the dedication our namesake would insist upon.
 
 Created by Chris Frankland-Wright and John Rogers
 
