@@ -49,9 +49,9 @@ fi
 echo "Installing common build dependencies..."
 if [ "$PKG_MANAGER" == "apt" ]; then
     sudo apt update
-    sudo apt install -y build-essential libudev-dev pkg-config curl
+    sudo apt install -y build-essential libudev-dev pkg-config curl wget
 elif [ "$PKG_MANAGER" == "dnf" ]; then
-    sudo dnf install -y gcc make perl-devel libudev-devel pkg-config curl
+    sudo dnf install -y gcc make perl-devel libudev-devel pkg-config curl wget
 elif [ "$PKG_MANAGER" == "pacman" ]; then
     sudo pacman -Sy --noconfirm base-devel libudev pkg-config curl
 fi
@@ -121,35 +121,22 @@ echo "NTPD removed (if present). Chrony, NMTUI, and Adjtimex installed and confi
 echo "📡 Installing and configuring WiFi hotspot and captive portal..."
 
 if [ "$PKG_MANAGER" == "apt" ]; then
-    # Install dependencies, but handle nodogsplash separately
-    sudo apt install -y hostapd dnsmasq
+    # Install dependencies for hotspot and for building nodogsplash
+    sudo apt install -y hostapd dnsmasq git libmicrohttpd-dev
     
-    # Check architecture
-    ARCH=$(dpkg --print-architecture)
-    if [ "$ARCH" == "armhf" ]; then
-        NDS_DEB_URL="https://github.com/nodogsplash/nodogsplash/releases/download/v6.0.0/nodogsplash_6.0.0-1_armhf.deb"
-    elif [ "$ARCH" == "arm64" ]; then
-        NDS_DEB_URL="https://github.com/nodogsplash/nodogsplash/releases/download/v6.0.0/nodogsplash_6.0.0-1_arm64.deb"
-    else
-        echo "Unsupported architecture for nodogsplash deb: $ARCH. Please install manually."
-        exit 1
-    fi
+    echo "Building and installing nodogsplash from source..."
+    # Create a temporary directory for the build
+    BUILD_DIR=$(mktemp -d)
+    git clone https://github.com/nodogsplash/nodogsplash.git "$BUILD_DIR"
     
-    echo "Downloading nodogsplash for $ARCH..."
-    curl -L "$NDS_DEB_URL" -o /tmp/nodogsplash.deb
+    cd "$BUILD_DIR"
+    make
+    sudo make install
     
-    # Verify that the downloaded file is a debian package
-    if ! dpkg-deb -I /tmp/nodogsplash.deb >/dev/null 2>&1; then
-        echo "❌ Error: Downloaded file is not a valid Debian package. Please check the URL and your connection."
-        rm /tmp/nodogsplash.deb
-        exit 1
-    fi
-
-    echo "Installing nodogsplash..."
-    sudo dpkg -i /tmp/nodogsplash.deb
-    # Install any missing dependencies for nodogsplash
-    sudo apt-get install -f -y
-    rm /tmp/nodogsplash.deb
+    # Clean up the build directory
+    cd ..
+    sudo rm -rf "$BUILD_DIR"
+    echo "✅ nodogsplash installed successfully."
 
     sudo systemctl unmask hostapd
     sudo systemctl enable hostapd
@@ -209,10 +196,12 @@ echo "Configuring nodogsplash..."
 sudo tee /etc/nodogsplash/nodogsplash.conf > /dev/null <<EOF
 GatewayInterface wlan0
 GatewayAddress 10.0.252.1
-MaxClients 50
-ClientIdleTimeout 3600
+MaxClients 250
+ClientIdleTimeout 480
 FirewallRuleSet preauthenticated-users {
     FirewallRule allow tcp port 80
+    FirewallRule allow tcp port 53
+    FirewallRule allow udp port 53
 }
 RedirectURL http://10.0.252.1/static/index.html
 EOF
@@ -241,7 +230,7 @@ echo "✅ Directory $INSTALL_DIR created."
 
 # 3. Install binary and static web files
 echo "🚀 Installing timeturner binary and web assets..."
-sudo cp target/release/ntp_timeturner $INSTALL_DIR/timeturner
+sudo cp target/release/ntp_tim_turner $INSTALL_DIR/timeturner
 # The static directory contains the web UI files
 sudo cp -r static $INSTALL_DIR/
 sudo ln -sf $INSTALL_DIR/timeturner $BIN_DIR/timeturner
