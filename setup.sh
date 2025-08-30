@@ -154,8 +154,9 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     sudo rm -rf "$BUILD_DIR"
     echo "✅ nodogsplash installed successfully."
 
-    sudo systemctl unmask hostapd
-    sudo systemctl enable hostapd
+    # Disable the standalone hostapd service to let NetworkManager manage it.
+    sudo systemctl disable hostapd
+    sudo systemctl mask hostapd
     sudo systemctl enable nodogsplash
 else
     echo "This script is designed for Debian-based systems like Raspberry Pi OS."
@@ -189,6 +190,8 @@ fi
 echo "Creating new '$CON_NAME' connection profile..."
 sudo nmcli c add type wifi ifname wlan0 con-name "$CON_NAME" autoconnect yes ssid "TimeTurner"
 sudo nmcli c modify "$CON_NAME" 802-11-wireless.mode ap 802-11-wireless.band bg
+sudo nmcli c modify "$CON_NAME" 802-11-wireless-security.key-mgmt wpa-psk
+sudo nmcli c modify "$CON_NAME" 802-11-wireless-security.psk "harry-ron-hermione"
 sudo nmcli c modify "$CON_NAME" ipv4.method manual ipv4.addresses 10.0.252.1/24
 
 # Configure dnsmasq for DHCP
@@ -198,26 +201,6 @@ interface=wlan0
 dhcp-range=10.0.252.10,10.0.252.50,255.255.255.0,24h
 address=/#/10.0.252.1
 EOF
-
-# Configure hostapd
-echo "Configuring hostapd..."
-sudo tee /etc/hostapd/hostapd.conf > /dev/null <<EOF
-interface=wlan0
-driver=nl80211
-ssid=TimeTurner
-hw_mode=g
-channel=7
-wmm_enabled=0
-macaddr_acl=0
-auth_algs=1
-ignore_broadcast_ssid=0
-wpa=2
-wpa_passphrase=harry-ron-hermione
-wpa_key_mgmt=WPA-PSK
-rsn_pairwise=CCMP
-EOF
-
-sudo sed -i 's|#DAEMON_CONF=""|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
 
 # Configure nodogsplash for captive portal
 echo "Configuring nodogsplash..."
