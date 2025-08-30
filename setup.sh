@@ -127,9 +127,9 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     # Check architecture
     ARCH=$(dpkg --print-architecture)
     if [ "$ARCH" == "armhf" ]; then
-        NDS_DEB_URL="https://github.com/nodogsplash/nodogsplash/releases/download/v5.0.1/nodogsplash_5.0.1-1_armhf.deb"
+        NDS_DEB_URL="https://github.com/nodogsplash/nodogsplash/releases/download/v6.0.0/nodogsplash_6.0.0-1_armhf.deb"
     elif [ "$ARCH" == "arm64" ]; then
-        NDS_DEB_URL="https://github.com/nodogsplash/nodogsplash/releases/download/v5.0.1/nodogsplash_5.0.1-1_arm64.deb"
+        NDS_DEB_URL="https://github.com/nodogsplash/nodogsplash/releases/download/v6.0.0/nodogsplash_6.0.0-1_arm64.deb"
     else
         echo "Unsupported architecture for nodogsplash deb: $ARCH. Please install manually."
         exit 1
@@ -138,6 +138,13 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     echo "Downloading nodogsplash for $ARCH..."
     curl -L "$NDS_DEB_URL" -o /tmp/nodogsplash.deb
     
+    # Verify that the downloaded file is a debian package
+    if ! dpkg-deb -I /tmp/nodogsplash.deb >/dev/null 2>&1; then
+        echo "❌ Error: Downloaded file is not a valid Debian package. Please check the URL and your connection."
+        rm /tmp/nodogsplash.deb
+        exit 1
+    fi
+
     echo "Installing nodogsplash..."
     sudo dpkg -i /tmp/nodogsplash.deb
     # Install any missing dependencies for nodogsplash
@@ -147,20 +154,18 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     sudo systemctl unmask hostapd
     sudo systemctl enable hostapd
     sudo systemctl enable nodogsplash
-elif [ "$PKG_MANAGER" == "dnf" ]; then
-    sudo dnf install -y hostapd dnsmasq
-    echo "Warning: nodogsplash is not available in standard dnf repositories. Please install it manually."
-    sudo systemctl enable hostapd
-elif [ "$PKG_MANAGER" == "pacman" ]; then
-    sudo pacman -Sy --noconfirm hostapd dnsmasq
-    echo "Warning: nodogsplash is not available in standard pacman repositories. Please install it manually from AUR."
-    sudo systemctl enable hostapd
+else
+    echo "This script is designed for Debian-based systems like Raspberry Pi OS."
+    echo "Skipping WiFi hotspot setup."
 fi
 
 # Stop services to configure
-sudo systemctl stop hostapd
-sudo systemctl stop dnsmasq
-sudo systemctl stop nodogsplash
+# Ensure services exist before trying to stop them
+sudo systemctl stop hostapd || true
+sudo systemctl stop dnsmasq || true
+if command -v nodogsplash &> /dev/null; then
+    sudo systemctl stop nodogsplash || true
+fi
 
 # Configure static IP for wlan0
 echo "Configuring static IP for wlan0..."
