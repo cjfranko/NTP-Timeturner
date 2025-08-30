@@ -133,6 +133,17 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     make
     sudo make install
     
+    # Manually install the systemd service file as 'make install' might not do it.
+    # This makes the script more robust.
+    if [ -f "debian/nodogsplash.service" ]; then
+        echo "Manually installing systemd service file..."
+        sudo cp debian/nodogsplash.service /etc/systemd/system/nodogsplash.service
+        # Reload systemd to recognize the new service
+        sudo systemctl daemon-reload
+    else
+        echo "⚠️  Warning: nodogsplash.service file not found in source. Cannot set up as a service."
+    fi
+
     # Clean up the build directory
     cd ..
     sudo rm -rf "$BUILD_DIR"
