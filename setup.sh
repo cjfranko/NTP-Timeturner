@@ -270,8 +270,17 @@ sudo nmcli c modify "$CON_NAME" ipv4.method manual ipv4.addresses 10.0.252.1/24
 # Configure dnsmasq for DHCP
 echo "Configuring dnsmasq..."
 sudo tee /etc/dnsmasq.conf > /dev/null <<EOF
+# Listen only on this interface
 interface=wlan0
+# Don't bind to all interfaces, only the one specified above
+bind-interfaces
+# Set the IP range for DHCP clients
 dhcp-range=10.0.252.10,10.0.252.50,255.255.255.0,24h
+# Provide a gateway address
+dhcp-option=option:router,10.0.252.1
+# Provide a DNS server address
+dhcp-option=option:dns-server,10.0.252.1
+# For captive portal, resolve all DNS queries to the AP itself
 address=/#/10.0.252.1
 EOF
 
