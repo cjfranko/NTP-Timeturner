@@ -87,6 +87,25 @@ The installation script automates the following steps:
 After installation is complete, the script will provide instructions to start the service manually or to run the application in its interactive terminal mode.
 
 ---
+
+## 🔄 Updating
+
+If you installed TimeTurner by cloning the repository with `git`, you can use the `update.sh` script to easily update to the latest version.
+
+**Note**: This script will not work if you used the `curl` one-line command for installation, as that method does not create a Git repository.
+
+To run the update script, navigate to the `NTP-Timeturner-main` directory and run:
+```bash
+chmod +x update.sh && ./update.sh
+```
+
+The update script automates the following:
+1.  Pulls the latest code from the `main` branch on GitHub.
+2.  Rebuilds the application binary.
+3.  Copies the new binary to `/opt/timeturner/`.
+4.  Restarts the `timeturner` service to apply the changes.
+
+---
 ## 🕰️ Chrony NTP 
 ```bash
 chronyc sources | Checks Source
