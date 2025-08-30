@@ -60,13 +60,16 @@ echo "Common build dependencies installed."
 # --- Install Python dependencies for testing ---
 echo "🐍 Installing Python dependencies for test scripts..."
 if [ "$PKG_MANAGER" == "apt" ]; then
-    sudo apt install -y python3 python3-pip
+    # python3-serial is the name for pyserial in apt
+    sudo apt install -y python3 python3-pip python3-serial
 elif [ "$PKG_MANAGER" == "dnf" ]; then
-    sudo dnf install -y python3 python3-pip
+    # python3-pyserial is the name for pyserial in dnf
+    sudo dnf install -y python3 python3-pip python3-pyserial
 elif [ "$PKG_MANAGER" == "pacman" ]; then
-    sudo pacman -Sy --noconfirm python python-pip
+    # python-pyserial is the name for pyserial in pacman
+    sudo pacman -Sy --noconfirm python python-pip python-pyserial
 fi
-sudo pip3 install pyserial
+# sudo pip3 install pyserial # This is replaced by the native package manager installs above
 echo "✅ Python dependencies installed."
 
 # --- Apply custom splash screen ---
