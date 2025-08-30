@@ -12,6 +12,9 @@ if [ -f "${INSTALL_DIR}/timeturner" ]; then
     case "$choice" in
         r|R )
             echo "Proceeding with full re-installation..."
+            # Stop the service to allow overwriting the binary, ignore errors if not running
+            echo "Stopping existing TimeTurner service..."
+            sudo systemctl stop timeturner.service || true
             # The script will continue to the installation steps below.
             ;;
         a|A )
@@ -277,6 +280,10 @@ sudo systemctl stop dnsmasq || true
 
 # --- Configure networking for AP mode ---
 
+# Set the WiFi country code to prevent radio issues. This is a critical step.
+echo "Setting WiFi Country Code to US..."
+sudo raspi-config nonint do_wifi_country US
+
 # Tell NetworkManager to ignore wlan0 completely to prevent conflicts.
 echo "Configuring NetworkManager to ignore wlan0..."
 sudo tee /etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf > /dev/null <<EOF
@@ -313,7 +320,8 @@ driver=nl80211
 ssid=Fetch-Hachi
 hw_mode=g
 channel=7
-wmm_enabled=0
+ieee80211n=1
+wmm_enabled=1
 macaddr_acl=0
 auth_algs=1
 ignore_broadcast_ssid=0
@@ -475,7 +483,7 @@ if [[ "$(uname)" == "Linux" ]]; then
     echo "  sudo systemctl start timeturner.service"
     echo ""
     echo "To view live logs, run:"
-    echo "  journalctl -u tim_turner.service -f"
+    echo "  journalctl -u timeturner.service -f"
     echo ""
 fi
 echo "To run the interactive TUI instead, simply run from the project directory:"
