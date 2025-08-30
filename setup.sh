@@ -253,13 +253,24 @@ done
 # Check for the IP address before starting nodogsplash
 if [ "$IP_CHECK" == "10.0.252.1" ]; then
     echo "✅ wlan0 configured with IP $IP_CHECK."
-    # sudo systemctl restart dnsmasq # dnsmasq is no longer used
     if command -v nodogsplash &> /dev/null; then
-        sudo systemctl restart nodogsplash
+        echo "Attempting to start nodogsplash service..."
+        if ! sudo systemctl restart nodogsplash; then
+            echo "❌ nodogsplash service failed to start. Displaying logs..."
+            # Give a moment for logs to be written
+            sleep 2
+            sudo journalctl -u nodogsplash.service --no-pager -n 50
+            echo ""
+            echo "To debug further, run nodogsplash in the foreground with this command:"
+            echo "  sudo /usr/bin/nodogsplash -f -d 7"
+            echo ""
+            exit 1
+        fi
+        echo "✅ nodogsplash service started successfully."
     fi
 else
     echo "❌ Error: wlan0 failed to get the static IP 10.0.252.1. Found: '$IP_CHECK'."
-    echo "Please check 'sudo systemctl status hostapd' and 'sudo systemctl status dhcpcd'."
+    echo "Please check 'sudo nmcli c show \"$CON_NAME\"' and 'ip addr show wlan0'."
     exit 1
 fi
 
