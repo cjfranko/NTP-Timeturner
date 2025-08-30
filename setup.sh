@@ -278,10 +278,19 @@ sudo systemctl restart hostapd
 
 # Wait for the interface to come up and get the IP address
 echo "Waiting for wlan0 to be configured..."
-sleep 5 # Give services a moment to start
+IP_CHECK=""
+# Loop for up to 30 seconds waiting for the IP
+for i in {1..15}; do
+    # The '|| true' prevents the script from exiting if grep finds no match
+    IP_CHECK=$(ip -4 addr show wlan0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' || true)
+    if [ "$IP_CHECK" == "10.0.252.1" ]; then
+        break
+    fi
+    echo "Still waiting for IP..."
+    sleep 2
+done
 
 # Check for the IP address before starting nodogsplash
-IP_CHECK=$(ip -4 addr show wlan0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
 if [ "$IP_CHECK" == "10.0.252.1" ]; then
     echo "✅ wlan0 configured with IP $IP_CHECK."
     sudo systemctl restart dnsmasq
