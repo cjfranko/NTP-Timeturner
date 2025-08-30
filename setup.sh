@@ -132,6 +132,54 @@ fi
 
 echo "NTPD removed (if present). Chrony, NMTUI, and Adjtimex installed and configured."
 
+# --- Configure Chrony to act as a local NTP server ---
+echo "⚙️  Configuring Chrony to serve local time..."
+# The path to chrony.conf can vary
+if [ -f /etc/chrony/chrony.conf ]; then
+    CHRONY_CONF="/etc/chrony/chrony.conf"
+elif [ -f /etc/chrony.conf ]; then
+    CHRONY_CONF="/etc/chrony.conf"
+else
+    CHRONY_CONF=""
+fi
+
+if [ -n "$CHRONY_CONF" ]; then
+    # Comment out any existing pool, server, or sourcedir lines to prevent syncing with external sources
+    echo "Disabling external NTP sources..."
+    sudo sed -i -E 's/^(pool|server|sourcedir)/#&/' "$CHRONY_CONF"
+
+    # Add settings to the top of the file to serve local clock
+    # Using a temp file to prepend is safer than multiple sed calls
+    TEMP_CONF=$(mktemp)
+    cat <<EOF > "$TEMP_CONF"
+# Serve the system clock as a reference at stratum 1
+server 127.127.1.0
+allow 127.0.0.0/8
+local stratum 1
+
+EOF
+    # Append the rest of the original config file after our new lines
+    cat "$CHRONY_CONF" >> "$TEMP_CONF"
+    sudo mv "$TEMP_CONF" "$CHRONY_CONF"
+
+
+    # Add settings to the bottom of the file to allow LAN clients
+    echo "Allowing LAN clients..."
+    sudo tee -a "$CHRONY_CONF" > /dev/null <<EOF
+
+# Allow LAN clients to connect
+allow 0.0.0.0/0
+EOF
+
+    # Restart chrony to apply changes (service name can be chrony or chronyd)
+    echo "Restarting Chrony service..."
+    sudo systemctl restart chrony || sudo systemctl restart chronyd
+    echo "✅ Chrony configured."
+else
+    echo "⚠️  Warning: chrony.conf not found. Skipping Chrony configuration."
+fi
+
+
 # --- Install and configure WiFi hotspot and captive portal ---
 echo "📡 Installing and configuring WiFi hotspot and captive portal..."
 
