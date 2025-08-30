@@ -261,8 +261,9 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     echo "✅ nodogsplash installed successfully."
 
     # Disable the standalone hostapd service to let NetworkManager manage it.
-    sudo systemctl disable hostapd
-    sudo systemctl mask hostapd
+    # We are now using the classic hostapd service, so unmask it.
+    sudo systemctl unmask hostapd
+    sudo systemctl enable hostapd
     sudo systemctl enable nodogsplash
 else
     echo "This script is designed for Debian-based systems like Raspberry Pi OS."
@@ -274,41 +275,46 @@ fi
 sudo systemctl stop hostapd || true
 sudo systemctl stop dnsmasq || true
 
-# Ensure NetworkManager is managing wlan0 by removing any conflicting configurations.
-# This is the critical fix for the "No suitable device" error.
-echo "Ensuring NetworkManager is managing wlan0..."
-sudo rm -f /etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf
+# --- Configure networking for AP mode ---
 
-# Prevent NetworkManager from running its own dnsmasq instance or managing resolv.conf.
-# This allows our standalone dnsmasq service to function without conflict.
-echo "Configuring NetworkManager to not manage DNS..."
-sudo tee /etc/NetworkManager/conf.d/99-disable-dns.conf > /dev/null <<EOF
-[main]
-dns=none
+# Tell NetworkManager to ignore wlan0 completely to prevent conflicts.
+echo "Configuring NetworkManager to ignore wlan0..."
+sudo tee /etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf > /dev/null <<EOF
+[keyfile]
+unmanaged-devices=interface-name:wlan0
 EOF
-
+# Also remove the DNS disabling config as it's no longer relevant for this method
+sudo rm -f /etc/NetworkManager/conf.d/99-disable-dns.conf
 sudo systemctl reload NetworkManager
 
-# Configure static IP for wlan0 using NetworkManager (nmcli)
-echo "Configuring static IP for wlan0 using NetworkManager..."
+# Configure a static IP for wlan0 using dhcpcd.
+echo "Configuring static IP for wlan0 via dhcpcd..."
+# Ensure dhcpcd is installed
+sudo apt install -y dhcpcd5
+# Add our static IP config, being careful not to overwrite existing settings
+sudo tee -a /etc/dhcpcd.conf > /dev/null <<EOF
 
-# Define the connection name
-CON_NAME="Fetch-Hachi-AP"
+# Static IP configuration for Hachi Time AP
+interface wlan0
+    static ip_address=10.0.252.1/24
+    nohook wpa_supplicant
+EOF
 
-# If a connection with this name already exists, delete it to ensure a clean slate.
-if nmcli c show --active | grep -q "$CON_NAME"; then
-    sudo nmcli c down "$CON_NAME" || true
-fi
-if nmcli c show | grep -q "$CON_NAME"; then
-    echo "Deleting existing '$CON_NAME' connection profile..."
-    sudo nmcli c delete "$CON_NAME" || true
-fi
-
-# Create a new connection profile for the Access Point with a static IP.
-echo "Creating new '$CON_NAME' connection profile..."
-sudo nmcli c add type wifi ifname wlan0 con-name "$CON_NAME" autoconnect yes ssid "Fetch-Hachi"
-sudo nmcli c modify "$CON_NAME" 802-11-wireless.mode ap 802-11-wireless.band bg
-sudo nmcli c modify "$CON_NAME" ipv4.method manual ipv4.addresses 10.0.252.1/24
+# Configure hostapd for the Access Point
+echo "Configuring hostapd..."
+sudo tee /etc/hostapd/hostapd.conf > /dev/null <<EOF
+interface=wlan0
+driver=nl80211
+ssid=Fetch-Hachi
+hw_mode=g
+channel=7
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0
+EOF
+# Point the hostapd service to the new config file.
+sudo sed -i 's|#DAEMON_CONF=""|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
 
 # Configure dnsmasq for DHCP
 echo "Configuring dnsmasq..."
@@ -344,8 +350,10 @@ EOF
 
 # Restart services in the correct order and add delays to prevent race conditions
 echo "Restarting services..."
-# Bring up the new AP connection using nmcli
-sudo nmcli c up "$CON_NAME"
+# Restart dhcpcd to apply the static IP
+sudo systemctl restart dhcpcd
+# Restart hostapd to create the access point
+sudo systemctl restart hostapd
 
 # Wait for the interface to come up and get the IP address
 echo "Waiting for wlan0 to be configured..."
@@ -382,7 +390,7 @@ if [ "$IP_CHECK" == "10.0.252.1" ]; then
     fi
 else
     echo "❌ Error: wlan0 failed to get the static IP 10.0.252.1. Found: '$IP_CHECK'."
-    echo "Please check 'sudo nmcli c show \"$CON_NAME\"' and 'ip addr show wlan0'."
+    echo "Please check 'sudo systemctl status hostapd' and 'sudo systemctl status dhcpcd'."
     exit 1
 fi
 
