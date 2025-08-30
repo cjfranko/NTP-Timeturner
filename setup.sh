@@ -121,18 +121,40 @@ echo "NTPD removed (if present). Chrony, NMTUI, and Adjtimex installed and confi
 echo "📡 Installing and configuring WiFi hotspot and captive portal..."
 
 if [ "$PKG_MANAGER" == "apt" ]; then
-    sudo apt install -y hostapd dnsmasq nodogsplash
+    # Install dependencies, but handle nodogsplash separately
+    sudo apt install -y hostapd dnsmasq
+    
+    # Check architecture
+    ARCH=$(dpkg --print-architecture)
+    if [ "$ARCH" == "armhf" ]; then
+        NDS_DEB_URL="https://github.com/nodogsplash/nodogsplash/releases/download/v5.0.1/nodogsplash_5.0.1-1_armhf.deb"
+    elif [ "$ARCH" == "arm64" ]; then
+        NDS_DEB_URL="https://github.com/nodogsplash/nodogsplash/releases/download/v5.0.1/nodogsplash_5.0.1-1_arm64.deb"
+    else
+        echo "Unsupported architecture for nodogsplash deb: $ARCH. Please install manually."
+        exit 1
+    fi
+    
+    echo "Downloading nodogsplash for $ARCH..."
+    curl -L "$NDS_DEB_URL" -o /tmp/nodogsplash.deb
+    
+    echo "Installing nodogsplash..."
+    sudo dpkg -i /tmp/nodogsplash.deb
+    # Install any missing dependencies for nodogsplash
+    sudo apt-get install -f -y
+    rm /tmp/nodogsplash.deb
+
     sudo systemctl unmask hostapd
     sudo systemctl enable hostapd
     sudo systemctl enable nodogsplash
 elif [ "$PKG_MANAGER" == "dnf" ]; then
-    sudo dnf install -y hostapd dnsmasq nodogsplash
+    sudo dnf install -y hostapd dnsmasq
+    echo "Warning: nodogsplash is not available in standard dnf repositories. Please install it manually."
     sudo systemctl enable hostapd
-    sudo systemctl enable nodogsplash
 elif [ "$PKG_MANAGER" == "pacman" ]; then
-    sudo pacman -Sy --noconfirm hostapd dnsmasq nodogsplash
+    sudo pacman -Sy --noconfirm hostapd dnsmasq
+    echo "Warning: nodogsplash is not available in standard pacman repositories. Please install it manually from AUR."
     sudo systemctl enable hostapd
-    sudo systemctl enable nodogsplash
 fi
 
 # Stop services to configure
