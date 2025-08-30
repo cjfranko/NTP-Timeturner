@@ -271,12 +271,27 @@ FirewallRuleSet preauthenticated-users {
 RedirectURL http://10.0.252.1/static/index.html
 EOF
 
-# Restart services
+# Restart services in the correct order and add delays to prevent race conditions
+echo "Restarting services..."
 sudo systemctl restart dhcpcd
-sudo systemctl restart dnsmasq
 sudo systemctl restart hostapd
-if command -v nodogsplash &> /dev/null; then
-    sudo systemctl restart nodogsplash
+
+# Wait for the interface to come up and get the IP address
+echo "Waiting for wlan0 to be configured..."
+sleep 5 # Give services a moment to start
+
+# Check for the IP address before starting nodogsplash
+IP_CHECK=$(ip -4 addr show wlan0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+if [ "$IP_CHECK" == "10.0.252.1" ]; then
+    echo "✅ wlan0 configured with IP $IP_CHECK."
+    sudo systemctl restart dnsmasq
+    if command -v nodogsplash &> /dev/null; then
+        sudo systemctl restart nodogsplash
+    fi
+else
+    echo "❌ Error: wlan0 failed to get the static IP 10.0.252.1. Found: '$IP_CHECK'."
+    echo "Please check 'sudo systemctl status hostapd' and 'sudo systemctl status dhcpcd'."
+    exit 1
 fi
 
 echo "✅ WiFi hotspot and captive portal configured. SSID: TimeTurner, IP: 10.0.252.1"
