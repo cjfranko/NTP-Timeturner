@@ -172,66 +172,24 @@ fi
 
 # Configure static IP for wlan0 using NetworkManager (nmcli)
 echo "Configuring static IP for wlan0 using NetworkManager..."
-# Check if a connection for wlan0 already exists and delete it to start fresh
-if nmcli -t -f NAME,DEVICE c show --active | grep -q "wlan0"; then
-    ACTIVE_CON=$(nmcli -t -f NAME,DEVICE c show --active | grep "wlan0" | cut -d':' -f1)
-    echo "Temporarily deactivating existing connection on wlan0: $ACTIVE_CON"
-    sudo nmcli c down "$ACTIVE_CON" || true
+
+# Define the connection name
+CON_NAME="TimeTurner-AP"
+
+# If a connection with this name already exists, delete it to ensure a clean slate.
+if nmcli c show --active | grep -q "$CON_NAME"; then
+    sudo nmcli c down "$CON_NAME" || true
+fi
+if nmcli c show | grep -q "$CON_NAME"; then
+    echo "Deleting existing '$CON_NAME' connection profile..."
+    sudo nmcli c delete "$CON_NAME" || true
 fi
 
-# Create a new connection profile for the AP
-# This sets the static IP and configures it to not manage this interface for other connections.
-sudo tee /etc/NetworkManager/conf.d/99-unmanaged-wlan0.conf > /dev/null <<EOF
-[keyfile]
-unmanaged-devices=interface-name:wlan0
-EOF
-# Reload NetworkManager to apply the unmanaged device setting
-sudo systemctl reload NetworkManager
-
-# Now, configure the static IP using a method that doesn't rely on NetworkManager's main loop
-# We will use dhcpcd for this specific interface, as it's simpler for a static AP setup.
-# First, ensure dhcpcd is installed.
-if [ "$PKG_MANAGER" == "apt" ]; then
-    sudo apt install -y dhcpcd5
-fi
-
-# Configure static IP for wlan0 in dhcpcd.conf
-sudo tee /etc/dhcpcd.conf > /dev/null <<EOF
-# A sample configuration for dhcpcd.
-# See dhcpcd.conf(5) for details.
-
-# Allow users of this group to interact with dhcpcd via the control socket.
-#controlgroup wheel
-
-# Inform the DHCP server of our hostname for DDNS.
-hostname
-
-# Use the hardware address of the interface for the Client ID.
-clientid
-
-# Persist interface configuration when dhcpcd exits.
-persistent
-
-# Rapid commit support.
-# Safe to enable by default because it requires the equivalent option set
-# on the server to actually work.
-option rapid_commit
-
-# A list of options to request from the DHCP server.
-option domain_name_servers, domain_name, domain_search, host_name
-option classless_static_routes
-# Respect the network MTU. This is applied to DHCP routes.
-option interface_mtu
-
-# A hook script is provided to lookup the hostname if not set by the DHCP
-# server, but it should not be run by default.
-nohook lookup-hostname
-
-# Static IP configuration for TimeTurner AP
-interface wlan0
-    static ip_address=10.0.252.1/24
-    nohook wpa_supplicant
-EOF
+# Create a new connection profile for the Access Point with a static IP.
+echo "Creating new '$CON_NAME' connection profile..."
+sudo nmcli c add type wifi ifname wlan0 con-name "$CON_NAME" autoconnect yes ssid "TimeTurner"
+sudo nmcli c modify "$CON_NAME" 802-11-wireless.mode ap 802-11-wireless.band bg
+sudo nmcli c modify "$CON_NAME" ipv4.method manual ipv4.addresses 10.0.252.1/24
 
 # Configure dnsmasq for DHCP
 echo "Configuring dnsmasq..."
@@ -278,8 +236,8 @@ EOF
 
 # Restart services in the correct order and add delays to prevent race conditions
 echo "Restarting services..."
-sudo systemctl restart dhcpcd
-sudo systemctl restart hostapd
+# Bring up the new AP connection using nmcli
+sudo nmcli c up "$CON_NAME"
 
 # Wait for the interface to come up and get the IP address
 echo "Waiting for wlan0 to be configured..."
