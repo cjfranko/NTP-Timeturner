@@ -250,7 +250,7 @@ sudo systemctl reload NetworkManager
 echo "Configuring static IP for wlan0 using NetworkManager..."
 
 # Define the connection name
-CON_NAME="TimeTurner-AP"
+CON_NAME="Fetch-Hachi-AP"
 
 # If a connection with this name already exists, delete it to ensure a clean slate.
 if nmcli c show --active | grep -q "$CON_NAME"; then
@@ -263,10 +263,8 @@ fi
 
 # Create a new connection profile for the Access Point with a static IP.
 echo "Creating new '$CON_NAME' connection profile..."
-sudo nmcli c add type wifi ifname wlan0 con-name "$CON_NAME" autoconnect yes ssid "TimeTurner"
+sudo nmcli c add type wifi ifname wlan0 con-name "$CON_NAME" autoconnect yes ssid "Fetch-Hachi"
 sudo nmcli c modify "$CON_NAME" 802-11-wireless.mode ap 802-11-wireless.band bg
-sudo nmcli c modify "$CON_NAME" 802-11-wireless-security.key-mgmt wpa-psk
-sudo nmcli c modify "$CON_NAME" 802-11-wireless-security.psk "harry-ron-hermione"
 sudo nmcli c modify "$CON_NAME" ipv4.method manual ipv4.addresses 10.0.252.1/24
 
 # Configure dnsmasq for DHCP
@@ -336,7 +334,7 @@ else
     exit 1
 fi
 
-echo "✅ WiFi hotspot and captive portal configured. SSID: TimeTurner, IP: 10.0.252.1"
+echo "✅ WiFi hotspot and captive portal configured. SSID: Fetch-Hachi, IP: 10.0.252.1"
 echo "Clients will be redirected to http://10.0.252.1/static/index.html"
 
 # 1. Build the release binary
