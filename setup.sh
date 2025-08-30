@@ -21,7 +21,8 @@ echo "Detected package manager: $PKG_MANAGER"
 # --- Update System Packages ---
 echo "Updating system packages..."
 if [ "$PKG_MANAGER" == "apt" ]; then
-    sudo apt update && sudo apt upgrade -y
+    sudo apt update
+    sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y -o Dpkg::Options::="--force-confold"
 elif [ "$PKG_MANAGER" == "dnf" ]; then
     sudo dnf upgrade -y
 elif [ "$PKG_MANAGER" == "pacman" ]; then
@@ -100,10 +101,10 @@ echo "Removing NTPD (if installed) and installing Chrony, NMTUI, Adjtimex..."
 if [ "$PKG_MANAGER" == "apt" ]; then
     sudo apt update
     sudo apt remove -y ntp || true # Remove ntp if it exists, ignore if not
-    sudo apt install -y chrony nmtui adjtimex
+    sudo apt install -y chrony network-manager adjtimex
     sudo systemctl enable chrony --now
 elif [ "$PKG_MANAGER" == "dnf" ]; then
-    sudo dnf remove -y ntp || true
+    sudo dnf remove -y ntp
     sudo dnf install -y chrony NetworkManager-tui adjtimex
     sudo systemctl enable chronyd --now
 elif [ "$PKG_MANAGER" == "pacman" ]; then

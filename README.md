@@ -50,36 +50,37 @@ When running as a background daemon, TimeTurner provides a web interface for mon
 
 ## 🚀 Installation
 
-The `setup.sh` script is provided to compile and install the TimeTurner application and its systemd service on a Debian-based system like Raspberry Pi OS.
+The `setup.sh` script compiles and installs the TimeTurner application. You can run it by cloning the repository with `git` or by using the `curl` command below for a git-free installation.
 
 ### Prerequisites
 
-- **Rust and Cargo**: The script requires the Rust programming language toolchain. If you don't have it, install it from [rustup.rs](https://rustup.rs/).
+- **Internet Connection**: To download dependencies.
+- **Curl and Unzip**: The script requires `curl` to download files and `unzip` for the git-free method. The setup script will attempt to install these if they are missing.
 
-### Running the Installer
+### Running the Installer (Recommended)
 
-1.  First, clone the repository:
-    ```bash
-    git clone https://github.com/cjfranko/NTP-Timeturner.git
-    cd NTP-Timeturner
-    ```
-2.  Make the script executable and run it. The script will use `sudo` for commands that require root privileges, so it may ask for your password.
-    ```bash
-    chmod +x setup.sh
-    ./setup.sh
-    ```
+This command downloads the latest version, unpacks it, and runs the setup script. Paste it into your Raspberry Pi terminal:
+
+```bash
+curl -L https://github.com/cjfranko/NTP-Timeturner/archive/refs/heads/main.zip -o NTP-Timeturner.zip && \
+unzip NTP-Timeturner.zip && \
+cd NTP-Timeturner-main && \
+chmod +x setup.sh && \
+./setup.sh
+```
 
 ### What the Script Does
 
 The installation script automates the following steps:
 
-1.  **Compiles the Binary**: Runs `cargo build --release` to create an optimised executable.
-2.  **Creates Directories**: Creates `/opt/timeturner` to store the application files.
-3.  **Installs Files**: 
+1.  **Installs Dependencies**: Installs `git`, `curl`, `unzip`, and necessary build tools.
+2.  **Compiles the Binary**: Runs `cargo build --release` to create an optimised executable.
+3.  **Creates Directories**: Creates `/opt/timeturner` to store the application files.
+4.  **Installs Files**: 
     - The compiled binary is copied to `/opt/timeturner/timeturner`.
     - The web interface assets from the `static/` directory are copied to `/opt/timeturner/static`.
     - A symbolic link is created from `/usr/local/bin/timeturner` to the binary, allowing it to be run from any location.
-4.  **Sets up Systemd Service**: 
+5.  **Sets up Systemd Service**: 
     - Copies the `timeturner.service` file to `/etc/systemd/system/`.
     - Enables the service to start automatically on system boot.
 
