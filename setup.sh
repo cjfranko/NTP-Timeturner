@@ -125,6 +125,14 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     sudo systemctl unmask hostapd
     sudo systemctl enable hostapd
     sudo systemctl enable nodogsplash
+elif [ "$PKG_MANAGER" == "dnf" ]; then
+    sudo dnf install -y hostapd dnsmasq nodogsplash
+    sudo systemctl enable hostapd
+    sudo systemctl enable nodogsplash
+elif [ "$PKG_MANAGER" == "pacman" ]; then
+    sudo pacman -Sy --noconfirm hostapd dnsmasq nodogsplash
+    sudo systemctl enable hostapd
+    sudo systemctl enable nodogsplash
 fi
 
 # Stop services to configure
