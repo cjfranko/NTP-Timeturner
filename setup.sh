@@ -346,9 +346,14 @@ GatewayAddress 10.0.252.1
 MaxClients 250
 AuthIdleTimeout 480
 FirewallRuleSet preauthenticated-users {
-    FirewallRule allow tcp port 80
+    # Allow DHCP for clients to get an IP address
+    FirewallRule allow udp port 67
+    FirewallRule allow udp port 68
+    # Allow DNS for captive portal detection
     FirewallRule allow tcp port 53
     FirewallRule allow udp port 53
+    # Allow HTTP for the captive portal redirect
+    FirewallRule allow tcp port 80
 }
 RedirectURL http://10.0.252.1/static/index.html
 EOF
