@@ -57,6 +57,18 @@ elif [ "$PKG_MANAGER" == "pacman" ]; then
 fi
 echo "Common build dependencies installed."
 
+# --- Install Python dependencies for testing ---
+echo "🐍 Installing Python dependencies for test scripts..."
+if [ "$PKG_MANAGER" == "apt" ]; then
+    sudo apt install -y python3 python3-pip
+elif [ "$PKG_MANAGER" == "dnf" ]; then
+    sudo dnf install -y python3 python3-pip
+elif [ "$PKG_MANAGER" == "pacman" ]; then
+    sudo pacman -Sy --noconfirm python python-pip
+fi
+sudo pip3 install pyserial
+echo "✅ Python dependencies installed."
+
 # --- Apply custom splash screen ---
 if [[ "$(uname)" == "Linux" ]]; then
     echo "🖼️  Applying custom splash screen..."
@@ -137,23 +149,25 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     BUILD_DIR=$(mktemp -d)
     git clone https://github.com/nodogsplash/nodogsplash.git "$BUILD_DIR"
     
-    cd "$BUILD_DIR"
-    make
-    sudo make install
-    
-    # Manually install the systemd service file as 'make install' might not do it.
-    # This makes the script more robust.
-    if [ -f "debian/nodogsplash.service" ]; then
-        echo "Manually installing systemd service file..."
-        sudo cp debian/nodogsplash.service /etc/systemd/system/nodogsplash.service
-        # Reload systemd to recognize the new service
-        sudo systemctl daemon-reload
-    else
-        echo "⚠️  Warning: nodogsplash.service file not found in source. Cannot set up as a service."
-    fi
+    # Run the build in a subshell to isolate the directory change
+    (
+        cd "$BUILD_DIR"
+        make
+        sudo make install
+        
+        # Manually install the systemd service file as 'make install' might not do it.
+        # This makes the script more robust.
+        if [ -f "debian/nodogsplash.service" ]; then
+            echo "Manually installing systemd service file..."
+            sudo cp debian/nodogsplash.service /etc/systemd/system/nodogsplash.service
+            # Reload systemd to recognize the new service
+            sudo systemctl daemon-reload
+        else
+            echo "⚠️  Warning: nodogsplash.service file not found in source. Cannot set up as a service."
+        fi
+    )
 
     # Clean up the build directory
-    cd ..
     sudo rm -rf "$BUILD_DIR"
     echo "✅ nodogsplash installed successfully."
 
