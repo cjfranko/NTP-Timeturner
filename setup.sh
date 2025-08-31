@@ -229,7 +229,8 @@ if [ "$PKG_MANAGER" == "apt" ]; then
     # sudo apt-get remove --purge -y dnsmasq || true # This line is no longer needed.
 
     # Install dependencies for hotspot and for building nodogsplash.
-    sudo apt install -y hostapd dnsmasq git libmicrohttpd-dev libjson-c-dev iptables
+    # ifupdown is needed to manage /etc/network/interfaces
+    sudo apt install -y hostapd dnsmasq git libmicrohttpd-dev libjson-c-dev iptables ifupdown
     
     # Force iptables-legacy for nodogsplash
     echo "Setting iptables-legacy mode for nodogsplash..."
