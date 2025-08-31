@@ -306,6 +306,9 @@ sudo sed -i '/^interface wlan0/,/^\s*$/d' /etc/dhcpcd.conf
 # Now, add our static IP config to the end of the file.
 sudo tee -a /etc/dhcpcd.conf > /dev/null <<EOF
 
+# Deny dhcpcd from managing the ethernet port to prevent conflicts
+denyinterfaces eth*
+
 # Static IP configuration for Hachi Time AP
 interface wlan0
     static ip_address=10.0.252.1/24
