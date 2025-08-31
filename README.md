@@ -4,13 +4,13 @@
 
 Hachi synchronises timecode-locked systems by decoding incoming LTC (Linear Time Code) and broadcasting it as NTP/PTP — with the dedication our namesake would insist upon.
 
-Created by Chris Frankland-Wright and John Rogers
+Created by Chris Frankland-Wright and Chaos Rogers
 
 ---
 
 ## 📦 Hardware Requirements
 
-- Raspberry Pi 5 (Dev Platform) but should be supported by Pi v3 (or better)
+- Raspberry Pi 5 2GB (Dev Platform) but should be supported by Pi v3 (or better)
 - Debian Bookworm (64-bit recommended)
 - Teensy 4.0 - https://thepihut.com/products/teensy-4-0-headers
 - Audio Adapter Board for Teensy 4.0 (Rev D) - https://thepihut.com/products/audio-adapter-board-for-teensy-4-0
@@ -32,7 +32,7 @@ Created by Chris Frankland-Wright and John Rogers
 
 ## 🖥️ Web Interface & API
 
-When running as a background daemon, TimeTurner provides a web interface for monitoring and configuration.
+When running as a background daemon, Hachi provides a web interface for monitoring and configuration.
 
 - **Access**: The web UI is available at `http://<raspberry_pi_ip>:8080`.
 - **Functionality**: You can view the real-time sync status, see logs, and change all configuration options directly from your browser.
@@ -50,7 +50,7 @@ When running as a background daemon, TimeTurner provides a web interface for mon
 
 ## 🚀 Installation
 
-The `setup.sh` script compiles and installs the TimeTurner application. You can run it by cloning the repository with `git` or by using the `curl` command below for a git-free installation.
+The `setup.sh` script compiles and installs the Hachi application. You can run it by cloning the repository with `git` or by using the `curl` command below for a git-free installation.
 
 ### Prerequisites
 
@@ -106,7 +106,7 @@ Or from anywhere after installation:
 
 ## 🔄 Updating
 
-If you installed TimeTurner by cloning the repository with `git`, you can use the `update.sh` script to easily update to the latest version.
+If you installed Hachi by cloning the repository with `git`, you can use the `update.sh` script to easily update to the latest version.
 
 **Note**: This script will not work if you used the `curl` one-line command for installation, as that method does not create a Git repository.
 
@@ -129,7 +129,7 @@ chronyc tracking | NTP Tracking
 sudo nano /etc/chrony/chrony.conf | Default Chrony Conf File
 
 Add to top:
-# Serve the system clock as a reference at stratum 10
+# Serve the system clock as a reference at stratum 1
 server 127.127.1.0
 allow 127.0.0.0/8
 local stratum 1
