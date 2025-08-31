@@ -247,7 +247,7 @@ if [[ "$(uname)" == "Linux" ]]; then
     echo "⚙️  Installing systemd service for Linux..."
     sudo cp timeturner.service /etc/systemd/system/
     sudo systemctl daemon-reload
-    sudo systemctl enable tim_turner.service
+    sudo systemctl enable timeturner.service
     echo "✅ Systemd service installed and enabled."
 else
     echo "⚠️  Skipping systemd service installation on non-Linux OS."
