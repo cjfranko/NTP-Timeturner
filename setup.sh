@@ -294,25 +294,34 @@ EOF
 sudo rm -f /etc/NetworkManager/conf.d/99-disable-dns.conf
 sudo systemctl reload NetworkManager
 
-# Configure a static IP for wlan0 using dhcpcd.
-echo "Configuring static IP for wlan0 via dhcpcd..."
-# Ensure dhcpcd is installed
-sudo apt install -y dhcpcd5
+# --- Configure networking for AP mode (using /etc/network/interfaces) ---
 
-# First, remove any existing configurations for wlan0 to prevent conflicts.
-# This is a more robust way to ensure our settings are applied.
-sudo sed -i '/^interface wlan0/,/^\s*$/d' /etc/dhcpcd.conf
+# 1. Uninstall dhcpcd5 to prevent any conflicts.
+echo "Removing dhcpcd5 to switch to /etc/network/interfaces..."
+sudo apt-get remove --purge -y dhcpcd5 || true
+sudo systemctl disable dhcpcd || true
 
-# Now, add our static IP config to the end of the file.
-sudo tee -a /etc/dhcpcd.conf > /dev/null <<EOF
+# 2. Configure a static IP for wlan0 directly in the interfaces file.
+echo "Configuring static IP for wlan0 via /etc/network/interfaces..."
+sudo tee /etc/network/interfaces > /dev/null <<EOF
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
 
-# Deny dhcpcd from managing the ethernet port to prevent conflicts
-denyinterfaces eth*
+source /etc/network/interfaces.d/*
 
-# Static IP configuration for Hachi Time AP
-interface wlan0
-    static ip_address=10.0.252.1/24
-    nohook wpa_supplicant
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface (Ethernet) - managed by NetworkManager
+allow-hotplug eth0
+iface eth0 inet dhcp
+
+# Static IP configuration for Fetch-Hachi AP
+allow-hotplug wlan0
+iface wlan0 inet static
+    address 10.0.252.1
+    netmask 255.255.255.0
 EOF
 
 # Configure hostapd for the Access Point
@@ -377,8 +386,11 @@ echo "Disabling systemd-resolved to ensure dnsmasq has full control..."
 sudo systemctl stop systemd-resolved || true
 sudo systemctl disable systemd-resolved || true
 
-# Restart dhcpcd to apply the static IP
-sudo systemctl restart dhcpcd
+# Bring up the wlan0 interface manually
+echo "Bringing up wlan0 interface..."
+sudo ifdown wlan0 || true
+sudo ifup wlan0
+
 # Restart hostapd to create the access point
 sudo systemctl restart hostapd
 
@@ -429,7 +441,7 @@ if [ "$IP_CHECK" == "10.0.252.1" ]; then
     fi
 else
     echo "❌ Error: wlan0 failed to get the static IP 10.0.252.1. Found: '$IP_CHECK'."
-    echo "Please check 'sudo systemctl status hostapd' and 'sudo systemctl status dhcpcd'."
+    echo "Please check 'sudo systemctl status hostapd' and 'cat /etc/network/interfaces'."
     exit 1
 fi
 
