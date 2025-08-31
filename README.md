@@ -86,6 +86,22 @@ The installation script automates the following steps:
 
 After installation is complete, the script will provide instructions to start the service manually or to run the application in its interactive terminal mode.
 
+```bash
+The working directory is /opt/timeturner.
+Default 'config.yml' installed to /opt/timeturner.
+
+To start the service, run:
+  sudo systemctl start timeturner.service
+
+To view live logs, run:
+  journalctl -u timeturner.service -f
+
+To run the interactive TUI instead, simply run from the project directory:
+  cargo run
+Or from anywhere after installation:
+  timeturner
+```
+
 ---
 
 ## 🔄 Updating
